@@ -1,2 +1,2 @@
 ### Credits
-The KEP concept and templates are taken from github.com/kudo project. 
+The KEP concept and templates are taken from github.com/kudobuilder project. 
