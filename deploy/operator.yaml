@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kubemove
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: kubemove
+  template:
+    metadata:
+      labels:
+        name: kubemove
+    spec:
+      serviceAccountName: kubemove
+      containers:
+        - name: kubemove
+          # Replace this with the built image name
+          image: kubemove/kubemove
+          command:
+          - kubemove
+          imagePullPolicy: Always
+          env:
+            - name: WATCH_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: OPERATOR_NAME
+              value: "kubemove"
