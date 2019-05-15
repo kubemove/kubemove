@@ -1,0 +1,7 @@
+apiVersion: kubemove.io/v1alpha1
+kind: MoveSwitch
+metadata:
+  name: example-moveswitch
+spec:
+  # Add fields here
+  size: 3

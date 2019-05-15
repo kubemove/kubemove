@@ -1,0 +1,7 @@
+apiVersion: kubemove.io/v1alpha1
+kind: MovePair
+metadata:
+  name: example-movepair
+spec:
+  # Add fields here
+  size: 3
