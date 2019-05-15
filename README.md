@@ -2,7 +2,7 @@
 
 
 
-<img src="logo/kubemove.png" alt="kube move logo" width="60%" />
+<img src="logo/logo.png" alt="kube move logo" width="60%" />
 
 # Overview
 
