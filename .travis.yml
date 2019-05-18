@@ -1,0 +1,10 @@
+language: go
+
+go_import_path: github.com/kubemove/kubemove
+
+go:
+  - "1.11.4"
+
+script:
+  - make
+  - ./_output/bin/kubemove version
