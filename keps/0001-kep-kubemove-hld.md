@@ -28,8 +28,8 @@ superseded-by:
     * [Goals](#goals)
     * [Non-Goals](#non-goals)
 * [Proposal](#proposal)
-    * [User Stories](#user-stories-optional)
-    * [Implementation Details/Notes/Constraints [optional]](#implementation-detailsnotesconstraints-optional)
+    * [User Stories](#user-stories)
+    * [Implementation Details/Notes/Constraints](#implementation-detailsnotesconstraints)
     * [Risks and Mitigations](#risks-and-mitigations)
 * [Graduation Criteria](#graduation-criteria)
 * [Implementation History](#implementation-history)
@@ -54,7 +54,7 @@ Proposed kubemove apis/CRDs are :
 
   
 
-movepair invokes the Dynamic Data Mobilizer (DDM), which implements the API datasync.kubemove.io
+movepair controller invokes the Dynamic Data Mobilizer (DDM), which implements the API datasync.kubemove.io
 
 
 
@@ -82,6 +82,8 @@ User treats application mobility as a need to move the application from one plac
 1. APIs for the end user to interact with the application and the data mobilizer
 2. APIs for the cloud provider or the middleware to control the data mobility flow where they can also control authentication and authorization when and if needed
 
+KubeMove operator has a set of controllers that watch the following CRs and implement the overall mobility workflow.
+
 There are five inital APIs that are being proposed:
 
 1. **KubeMoveEngine:** This CRD defines the placeholders for the workflow for a given application. The CR is created either by the user by invoking the spec that has the following details
@@ -99,7 +101,7 @@ There are five inital APIs that are being proposed:
 
 **KubeMove interaction with the end user:**
 
-End user invokes the data mobility flow by inserting the annotation `kubemove.io/kubemoveapply="true"`. In addition, the user also identifies the name of the KubeMoveEngine that handles the mobility by using the annotation `kubemove.io/engine="myBusyBoxKMEngine"` . These two annotations together provide an entry point of KubeMove to the application moblity. User then invoke the KubeMoveEngine to specify the details of required application mobility.
+End user invokes the data mobility flow by inserting the annotation `kubemove.io/kubemove.enable="true"`. In addition, the user also identifies the name of the KubeMoveEngine that handles the mobility by using the annotation `kubemove.io/engine="myBusyBoxKMEngine"` . These two annotations together provide an entry point of KubeMove to the application moblity. User then invoke the KubeMoveEngine to specify the details of required application mobility.
 
 **KubeMove interaction with cloud provider:**
 
