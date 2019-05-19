@@ -6,8 +6,8 @@ import "github.com/spf13/cobra"
 func NewCmdKubeMove() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "kubemove",
-		Short: "kubemove is used for interacting with kmov operators",
-		Long:  "kubemove is used for interacting with kmov operators",
+		Short: "kubemove is used for interacting with kubemove operators",
+		Long:  "kubemove is used for interacting with kubemove operators",
 	}
 	cmd.AddCommand(NewCmdVersion())
 	return cmd
