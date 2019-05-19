@@ -1,6 +1,7 @@
 <img src="logo/logo.png" alt="kube move logo" width="60%" />
 
 # Overview
+[![Go Report Card](https://goreportcard.com/badge/github.com/kubemove/kubemove)](https://goreportcard.com/report/github.com/kubemove/kubemove)
 
 [![Build Status](https://travis-ci.org/kubemove/kubemove.svg?branch=master)](https://travis-ci.org/kubemove/kubemove)
 
