@@ -7,7 +7,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewCmdVersion returns kmov version command
+// NewCmdVersion returns kubemove version command
 func NewCmdVersion() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "version",
@@ -15,7 +15,7 @@ func NewCmdVersion() *cobra.Command {
 		Long: `Prints version and other details relevant to kubemove plugin
 
 Usage:
-kubectl kubemove version
+kubemove version
 	`,
 		Run: func(cmd *cobra.Command, args []string) {
 			fmt.Printf("Version: %s\n", "v0.0.1-unreleased")
