@@ -31,7 +31,7 @@ superseded-by:
     * [User Stories](#user-stories)
     * [Implementation Details/Notes/Constraints](#implementation-detailsnotesconstraints)
     * [Risks and Mitigations](#risks-and-mitigations)
-* [Graduation Criteria](#graduation-criteria)
+* [Design acceptance criteria](#design-acceptance-criteria)
 * [Implementation History](#implementation-history)
 
 ## Summary
@@ -92,10 +92,10 @@ There are five inital APIs that are being proposed:
    - The Dynamic Data Mobilizer or DDM details
    - One-time offline move or live movement at a future date with continuous data transfer starting immediately
    - Telemetry management
-2. **KubeMovePair:** This CRD defines the data channel between the source and destination endpoints. KubeMovePair CR is created automatically by KubeMoveEngine controller. As indicated in the non-goals section of this document, setting up of the actual communication channel is not in the scope of KubeMove, it is done external to KubeMove. KubeMovePair contains the status of the data channel (init, in-progress, active, complete, unknown). KubeMovePair controller that is watching this CR will manage the data channel in accordance with the Kubernetes controller pattern of "desired state vs current state". This controller invokes DDM and waits for the DataSync CR to be created. Application developers or application vendors or cloud providers or storage providers may write their own DDM implementations to handle the data sync between source and target end points.
-3. **DataSync:** This CRD defines the interface that DDM implementors have to expose. At the end of a succesful data channel creation between the two end points, DataSync CR is created by the DDM. This CR provides granular status of the data channel. DDM is either application specific or storage vendor specific. For example, a PostgreSQL DDM may establish the data channel on top of a KubeMovePair and manage the async snapshots to be transferred at regular interval from source to destination.
+2. **KubeMovePair:** This CRD defines the data channel between the source and destination endpoints. `KubeMovePair` CR is created automatically by `KubeMoveEngine` controller. As indicated in the non-goals section of this document, setting up of the actual communication channel is not in the scope of KubeMove, it is done external to KubeMove. `KubeMovePair` contains the status of the data channel (init, in-progress, active, complete, unknown). `KubeMovePair` controller that is watching this CR will manage the data channel in accordance with the Kubernetes controller pattern of "desired state vs current state". This controller invokes DDM and waits for the `DataSync` CR to be created. Application developers or application vendors or cloud providers or storage providers may write their own DDM implementations to handle the data sync between source and target end points.
+3. **DataSync:** This CRD defines the interface that DDM implementors have to expose. At the end of a succesful data channel creation between the two end points, `DataSync` CR is created by the DDM. This CR provides granular status of the data channel. DDM is either application specific or storage vendor specific. For example, a PostgreSQL DDM may establish the data channel on top of a `KubeMovePair` and manage the async snapshots to be transferred at regular interval from source to destination.
 4. **KubeMoveSwitch:** This CRD is defined for completing the application mobility part, from source to target. The controller watching the CR handles the flow of bringing down the source application and enabling the target application with the required spec. If any change to the application that needs to be applied on the target side, that change is handled through this CRD. The target side switch hooks provide post switch execution scripts like changing the ingress or istio configuration etc.
-5. **KubeMoveReverse**: This is an optional step. Many times, the application may need to be moved back and forth between two destinations, for example in scenarios where blue-green deployment strategy is followed. If an application has to be moved back to the original location, the data sync direction needs to be changed, which means that an entire data channel has to be setup in the reverse direction. Using this CR, the controller manages the establishment of the channel till the DataSync CR is created for the reverse data transfer.
+5. **KubeMoveReverse**: This is an optional step. Many times, the application may need to be moved back and forth between two destinations, for example in scenarios where blue-green deployment strategy is followed. If an application has to be moved back to the original location, the data sync direction needs to be changed, which means that an entire data channel has to be setup in the reverse direction. Using this CR, the controller manages the establishment of the channel till the `DataSync` CR is created for the reverse data transfer.
 
 
 
@@ -123,9 +123,9 @@ KubeMove project defines the spec for the CRDs and implements the controllers to
 
 Establishing the secure communication between the end points across boundaries can pose as a challenge. The actual secure channel establishment is not in the scope of KubeMove but needs to be given a complete thought for data security on the wire. 
 
-## Graduation Criteria
+## Design acceptance criteria
 
-This KEP is in proposal state. To graduate, at least two sponsors are needed as design approvers from two different companies. 
+This KEP is in provisional state. To move the design into `accepted` state, at least two sponsors are needed as design approvers from two different companies. 
 
 
 
