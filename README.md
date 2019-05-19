@@ -5,6 +5,7 @@
 <img src="logo/logo.png" alt="kube move logo" width="60%" />
 
 # Overview
+[![Go Report Card](https://goreportcard.com/badge/github.com/kubemove/kubemove)](https://goreportcard.com/report/github.com/kubemove/kubemove)
 
 Workloads running on Kubernetes do not make assumptions about the underlying infrastructure. However,  it is still non-trivial to move them across different clusters. It is also non trivial to move them to another namespace within the same cluster scope such as to a different zone. KubeMove provides a set of tools and API to coordinate the orchestration and workflow of moving an application in production across cluster or namespace boundaries. 
 
