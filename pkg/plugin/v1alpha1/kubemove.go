@@ -1,6 +1,8 @@
 package v1alpha1
 
-import "github.com/spf13/cobra"
+import (
+	"github.com/spf13/cobra"
+)
 
 // NewCmdKubeMove returns kubemove root command
 func NewCmdKubeMove() *cobra.Command {
@@ -10,5 +12,6 @@ func NewCmdKubeMove() *cobra.Command {
 		Long:  "kubemove is used for interacting with kubemove operators",
 	}
 	cmd.AddCommand(NewCmdVersion())
+	cmd.AddCommand(NewCmdList())
 	return cmd
 }
