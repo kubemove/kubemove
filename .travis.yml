@@ -7,5 +7,5 @@ go:
 
 script:
   - make
-  - ./_output/bin/kubemove version
-  - ./_output/bin/kubemove list
+  - ./build/_output/bin/kubemove version
+  - ./build/_output/bin/kubemove list

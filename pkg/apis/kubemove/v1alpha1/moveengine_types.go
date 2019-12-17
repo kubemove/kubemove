@@ -13,6 +13,14 @@ type MoveEngineSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html
+	MovePair         string                `json:"movePair"`
+	Namespace        string                `json:"namespace"`
+	RemoteNamespace  string                `json:"remoteNamespace"`
+	Selectors        *metav1.LabelSelector `json:"selectors"`
+	SyncPeriod       string                `json:"syncPeriod"`
+	Mode             string                `json:"mode"`
+	PluginProvider   string                `json:"plugin"`
+	IncludeResources bool                  `json:"includeResources"`
 }
 
 // MoveEngineStatus defines the observed state of MoveEngine
@@ -21,6 +29,11 @@ type MoveEngineStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html
+	Stage      string            `json:"Stage"`
+	LastStatus string            `json:"LastStatus"`
+	LastSync   string            `json:"LastSync"`
+	Volumes    []*VolumeStatus   `json:"Volumes"`
+	Resources  []*ResourceStatus `json:"Resources"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -46,4 +59,27 @@ type MoveEngineList struct {
 
 func init() {
 	SchemeBuilder.Register(&MoveEngine{}, &MoveEngineList{})
+}
+
+// VolumeStatus sync status of volumes
+type VolumeStatus struct {
+	Namespace      string `json:"namespace"`
+	PVC            string `json:"pvc"`
+	Status         string `json:"Status"`
+	SyncedTime     string `json:"Synced"`
+	LastStatus     string `json:"lastStatus"`
+	LastSyncedTime string `json:"lastSyncedTime"`
+	Reason         string `json:"reason"`
+	Volume         string `json:"Volume"`
+	RemoteVolume   string `json:"RemoteVolume"`
+}
+
+// ResourceStatus sync status of resource
+type ResourceStatus struct {
+	Kind           string `json:"kind"`
+	Name           string `json:"name"`
+	Phase          string `json:"phase"`
+	Status         string `json:"status"`
+	Reason         string `json:"reason"`
+	LastSyncedTime string `json:"lastSyncedTime"`
 }

@@ -11,7 +11,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
 	"github.com/kubemove/kubemove/pkg/apis"
-	"github.com/kubemove/kubemove/pkg/controller"
+	controller "github.com/kubemove/kubemove/pkg/controller/moveswitch"
 
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	"github.com/operator-framework/operator-sdk/pkg/leader"

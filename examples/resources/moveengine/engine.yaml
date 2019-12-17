@@ -1,0 +1,14 @@
+apiVersion: kubemove.io/v1alpha1
+kind: MoveEngine
+metadata:
+  name: remote-cluster-1
+  namespace: kubemove
+spec:
+  #movepair name
+  movePair: cluster1
+  namespace: ns1
+  remoteNamespace: ns2
+  selectors:
+    matchLabels:
+      name: app1
+

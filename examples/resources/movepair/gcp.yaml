@@ -1,0 +1,33 @@
+apiVersion: kubemove.io/v1alpha1
+kind: MovePair
+metadata:
+  name: cluster1
+  namespace: kubemove
+spec:
+  config:
+    clusters:
+      # cluster name, remote-cluster-1
+      remote-cluster-1:
+        certificate-authority-data: REMOTE_CLUSTER_1 CA DATA
+        server: REMOTE_CLUSTER_1 SERVER IP
+    contexts:
+      # cluster name, remote-cluster-1
+      remote-cluster-1:
+        cluster: remote-cluster-1
+        user: USER_NAME
+    # current context if multiple clusters are added in pair, remote-cluster-1
+    current-context: remote-cluster-1
+    preferences: {}
+    users:
+      # username
+      USER_NAME:
+        auth-provider:
+          config:
+            access-token: REMOTE_CLUSTER_1 TOKEN
+            cmd-args: config config-helper --format=json
+            cmd-path: /usr/lib/google-cloud-sdk/bin/gcloud
+            expiry: ""
+            expiry-key: '{.credential.token_expiry}'
+            token-key: '{.credential.access_token}'
+          name: gcp
+

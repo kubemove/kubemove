@@ -1,0 +1,17 @@
+FROM ubuntu:bionic
+
+ARG GCLOUD_VERSION=272.0.0
+
+LABEL maintainer="Mayank Patel<mayank.patel@mayadata.io>"
+
+RUN apt update && apt install -y  wget python
+
+RUN wget -O aws-iam-authenticator https://amazon-eks.s3-us-west-2.amazonaws.com/1.14.6/2019-08-22/bin/linux/amd64/aws-iam-authenticator &&  \
+        chmod +x aws-iam-authenticator &&   \
+        mv aws-iam-authenticator /usr/local/bin
+
+RUN wget https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-sdk-${GCLOUD_VERSION}-linux-x86_64.tar.gz && \
+        tar xf google-cloud-sdk-${GCLOUD_VERSION}-linux-x86_64.tar.gz   &&  \
+        rm google-cloud-sdk-${GCLOUD_VERSION}-linux-x86_64.tar.gz &&    \
+        mv google-cloud-sdk /usr/lib/
+

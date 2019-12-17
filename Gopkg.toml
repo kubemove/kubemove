@@ -62,6 +62,14 @@ required = [
   # branch = "master" #osdk_branch_annotation
   version = "=v0.7.0" #osdk_version_annotation
 
+[[constraint]]
+  name = "github.com/vmware-tanzu/velero"
+  version = "=v1.2.0"
+
+[[constraint]]
+  name = "github.com/sirupsen/logrus"
+  version = "=v1.0.3"
+
 [prune]
   go-tests = true
   non-go = true

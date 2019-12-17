@@ -1,0 +1,8 @@
+ARG BASE_IMG
+FROM $BASE_IMG
+
+LABEL maintainer="Mayank Patel<mayank.patel@mayadata.io>"
+
+COPY _output/bin/kpair /
+
+ENTRYPOINT ["/kpair"]
