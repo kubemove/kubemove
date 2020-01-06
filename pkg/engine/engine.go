@@ -1,9 +1,10 @@
 package engine
 
 import (
+	"context"
 	"encoding/json"
-	"fmt"
 	"os"
+	"time"
 
 	"github.com/pkg/errors"
 
@@ -36,7 +37,7 @@ type MultiResource struct {
 type NamedObj map[string]unstructured.Unstructured
 
 type MoveEngineAction struct {
-	mov                v1alpha1.MoveEngine
+	MEngine            v1alpha1.MoveEngine
 	selector           labels.Selector
 	client             client.Client
 	dclient            *discovery.DiscoveryClient
@@ -94,21 +95,24 @@ func NewMultiAPIResources() map[string]*MultiResource {
 
 }
 func NewMoveEngineAction(log logr.Logger, c client.Client, h helper.Helper) *MoveEngineAction {
-	sr := make(map[schema.GroupVersionResource]NamedObj)
+	resourcesMap := make(map[schema.GroupVersionResource]NamedObj)
 	syncedMap := make(map[MResources]v1alpha1.ResourceStatus)
-	er := make(map[MResources]unstructured.Unstructured)
-	v := make(map[MResources]unstructured.Unstructured)
-	sv := make(map[MResources]unstructured.Unstructured)
+	exposedResourceMap := make(map[MResources]unstructured.Unstructured)
+	volumeMap := make(map[MResources]unstructured.Unstructured)
+	syncedVolume := make(map[MResources]v1alpha1.VolumeStatus)
+	stsVolumeMap := make(map[MResources]unstructured.Unstructured)
+
 	return &MoveEngineAction{
 		log:                log,
 		client:             c,
-		resourcesMap:       sr,
-		exposedResourceMap: er,
-		volMap:             v,
-		stsVolMap:          sv,
+		resourcesMap:       resourcesMap,
+		exposedResourceMap: exposedResourceMap,
+		volMap:             volumeMap,
+		stsVolMap:          stsVolumeMap,
 		multiAPIResources:  NewMultiAPIResources(),
 		syncedResourceMap:  syncedMap,
 		discoveryHelper:    h,
+		syncedVolMap:       syncedVolume,
 	}
 }
 
@@ -119,7 +123,7 @@ func (m *MoveEngineAction) ParseResourceEngine(mov *v1alpha1.MoveEngine) error {
 			Name:      mov.Spec.MovePair},
 		m.client)
 	if err != nil {
-		fmt.Printf("Failed to fetch movePair %v.. %v\n", mov.Spec.MovePair, err)
+		m.log.Error(err, "Failed to fetch movePair %v.. %v\n", mov.Spec.MovePair)
 		return err
 	}
 
@@ -129,11 +133,11 @@ func (m *MoveEngineAction) ParseResourceEngine(mov *v1alpha1.MoveEngine) error {
 
 	ls, err := metav1.LabelSelectorAsSelector(mov.Spec.Selectors)
 	if err != nil {
-		fmt.Printf("Failed to parse label selector %v\n", err)
+		m.log.Error(err, "Failed to parse label selector")
 		return err
 	}
 
-	m.mov = *mov
+	m.MEngine = *mov
 	m.selector = ls
 
 	err = m.UpdateSyncResourceList()
@@ -141,13 +145,10 @@ func (m *MoveEngineAction) ParseResourceEngine(mov *v1alpha1.MoveEngine) error {
 		return err
 	}
 
-	err = m.syncResourceList()
-	if err != nil {
-		return err
-	}
-
 	m.resetMultiAPIResources()
-	return nil
+
+	err = m.syncResourceList()
+	return err
 }
 
 func (m *MoveEngineAction) resetMultiAPIResources() {
@@ -195,4 +196,40 @@ func (m *MoveEngineAction) updateClient(mpair *v1alpha1.MovePair) error {
 		return err
 	}
 	return nil
+}
+
+func (m *MoveEngineAction) UpdateMoveEngineStatus(err error, ds string) error {
+	lastStatus := m.MEngine.Status
+	newStatus := v1alpha1.MoveEngineStatus{}
+
+	if len(ds) == 0 {
+		return errors.New("Empty dataSync")
+	}
+
+	if err != nil {
+		newStatus.Status = "Errored"
+	} else {
+		newStatus.Status = "Synced"
+	}
+
+	newStatus.SyncedTime = metav1.Time{Time: time.Now()}
+	newStatus.LastSyncedTime = lastStatus.SyncedTime
+	newStatus.LastStatus = lastStatus.Status
+
+	// resource status
+	for _, l := range m.syncedResourceMap {
+		r := l
+		newStatus.Resources = append(newStatus.Resources, &r)
+	}
+
+	// volume status
+	for _, l := range m.syncedVolMap {
+		r := l
+		newStatus.Volumes = append(newStatus.Volumes, &r)
+	}
+
+	newStatus.DataSync = ds
+
+	m.MEngine.Status = newStatus
+	return m.client.Update(context.TODO(), &m.MEngine)
 }

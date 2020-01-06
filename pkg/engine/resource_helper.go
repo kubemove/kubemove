@@ -2,7 +2,6 @@ package engine
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,7 +32,7 @@ func (m *MoveEngineAction) UpdateSyncResourceList() error {
 			}
 			err := m.parseAPIResource(apiResource)
 			if err != nil {
-				return errors.Errorf("Failed to parse API resource %v.. %v", apiResource.Name, err)
+				return errors.Wrapf(err, "Failed to parse API resource %v", apiResource.Name)
 			}
 		}
 	}
@@ -45,21 +44,19 @@ func (m *MoveEngineAction) parseAPIResource(api metav1.APIResource) error {
 	//TODO pass top groupVersion
 	switch api.Name {
 	case "leases", "nodes", "events":
-		fmt.Printf("Skipping %v\n", api.Name)
+		m.log.Info("Skipping", "Resource", api.Name)
 		return nil
 	}
 
 	// check if ns exists or not
 	if api.Name == "namespaces" {
 		if err := m.parseNamespace(api); err != nil {
-			fmt.Printf("Namespace sync failed %v\n", err)
-			return err
+			return errors.Wrapf(err, "Namespace sync failed")
 		}
 	}
-	if len(m.mov.Spec.Namespace) != 0 && api.Namespaced {
+	if len(m.MEngine.Spec.Namespace) != 0 && api.Namespaced {
 		if err := m.parseResourceList(api); err != nil {
-			fmt.Printf("Failed to create resourceList for %v %v.. %v\n", api.Name, api.Group, err)
-			return err
+			return errors.Wrapf(err, "Failed to create resourceList for %v %v\n", api.Name, api.Group)
 		}
 	}
 
@@ -67,7 +64,8 @@ func (m *MoveEngineAction) parseAPIResource(api metav1.APIResource) error {
 		switch api.Kind {
 		case "StorageClass":
 			if err := m.parseResourceList(api); err != nil {
-				fmt.Printf("Failed to create resourceList for %v %v.. %v\n", api.Name, api.Group, err)
+				//TODO
+				m.log.Error(err, "Failed to create resourceList", "Resource", api.Name, "Group", api.Group)
 			}
 		}
 	}
@@ -77,14 +75,12 @@ func (m *MoveEngineAction) parseAPIResource(api metav1.APIResource) error {
 func (m *MoveEngineAction) parseResourceList(api metav1.APIResource) error {
 	list, err := m.ListResourcesFromAPI(api)
 	if err != nil {
-		fmt.Printf("Failed to fetch list for %v %v.. %v\n", api.Name, api.Group, err)
-		return err
+		return errors.Wrapf(err, "Failed to fetch list for %v %v\n", api.Name, api.Group)
 	}
 
 	for _, l := range list.Items {
 		if err := m.parseResource(api, l); err != nil {
-			fmt.Printf("Failed to parse resource for %v %v.. %v\n", api.Name, api.Group, err)
-			return err
+			return errors.Wrapf(err, "Failed to parse resource for %v %v\n", api.Name, api.Group)
 		}
 	}
 	return nil
@@ -100,7 +96,7 @@ func (m *MoveEngineAction) ListResourcesFromAPI(api metav1.APIResource) (*unstru
 
 	ns := ""
 	if api.Namespaced {
-		ns = m.mov.Spec.Namespace
+		ns = m.MEngine.Spec.Namespace
 	}
 
 	err := m.client.List(
@@ -118,12 +114,12 @@ func (m *MoveEngineAction) parseResource(api metav1.APIResource, obj unstructure
 	switch api.Name {
 	case "pods":
 		if err := m.parseVolumes(api, obj, m.checkIfSTSPod(obj)); err != nil {
-			fmt.Printf("Failed to parse volumes for %v/%v\n", obj.GetKind(), obj.GetName())
+			m.log.Error(err, "Failed to parse volumes for pod", "Namespace", obj.GetNamespace(), "Name", obj.GetName())
 		}
 	}
 
 	if !m.ShouldRestore(obj) {
-		fmt.Printf("Skipping %v %v\n", api.Name, obj.GetName())
+		m.log.Info("Skipping", "Resource", api.Name, "Namespace", obj.GetNamespace(), "Name", obj.GetName())
 		return nil
 	}
 
@@ -137,7 +133,7 @@ func (m *MoveEngineAction) getResource(name, ns, kind string) (unstructured.Unst
 	// TODO check ResourceFor : if returns top one
 	gvr, _, err := m.discoveryHelper.ResourceFor(schema.ParseGroupResource(kind).WithVersion(""))
 	if err != nil {
-		fmt.Printf("Failed to fetch resource for %v.. %v\n", kind, err)
+		m.log.Error(err, "Failed to fetch resource", "Resource", kind)
 		return *obj, nil
 	}
 
@@ -149,6 +145,27 @@ func (m *MoveEngineAction) getResource(name, ns, kind string) (unstructured.Unst
 	err = m.client.Get(
 		context.TODO(),
 		client.ObjectKey{Name: name, Namespace: ns},
+		obj)
+	return *obj, err
+}
+
+func (m *MoveEngineAction) getRemoteResource(name, ns, kind string) (unstructured.Unstructured, error) {
+	obj := &unstructured.Unstructured{}
+
+	gvr, err := m.remoteMapper.ResourceFor(schema.ParseGroupResource(kind).WithVersion(""))
+	if err != nil {
+		return *obj, err
+	}
+
+	gv := gvr.GroupVersion()
+	obj.SetAPIVersion(gv.String())
+	obj.SetKind(kind)
+	err = m.remoteClient.Get(
+		context.TODO(),
+		client.ObjectKey{
+			Name:      name,
+			Namespace: ns,
+		},
 		obj)
 	return *obj, err
 }

@@ -5,10 +5,11 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	kubemovev1alpha1 "github.com/kubemove/kubemove/pkg/apis/kubemove/v1alpha1"
+	v1alpha1 "github.com/kubemove/kubemove/pkg/apis/kubemove/v1alpha1"
 	"github.com/kubemove/kubemove/pkg/engine"
 	"github.com/kubemove/kubemove/pkg/gcp"
 	"github.com/pkg/errors"
+	"github.com/robfig/cron"
 	"github.com/sirupsen/logrus"
 	helper "github.com/vmware-tanzu/velero/pkg/discovery"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
@@ -56,7 +57,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	// Watch for changes to primary resource MoveEngine
-	err = c.Watch(&source.Kind{Type: &kubemovev1alpha1.MoveEngine{}}, &handler.EnqueueRequestForObject{})
+	err = c.Watch(&source.Kind{Type: &v1alpha1.MoveEngine{}}, &handler.EnqueueRequestForObject{})
 	if err != nil {
 		return err
 	}
@@ -86,7 +87,7 @@ func (r *ReconcileMoveEngine) Reconcile(request reconcile.Request) (reconcile.Re
 	r.log.Info("Reconciling MoveEngine")
 
 	// Fetch the MoveEngine instance
-	instance := &kubemovev1alpha1.MoveEngine{}
+	instance := &v1alpha1.MoveEngine{}
 	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
 	if err != nil {
 		if apierr.IsNotFound(err) {
@@ -108,19 +109,43 @@ func (r *ReconcileMoveEngine) Reconcile(request reconcile.Request) (reconcile.Re
 	}
 
 	if err = engine.ValidateEngine(instance); err != nil {
+		//TODO need to update it in status
 		r.log.Error(err, "Validation error")
 		return reconcile.Result{}, err
+	}
+
+	cr, err := cron.ParseStandard(instance.Spec.SyncPeriod)
+	if err != nil {
+		r.log.Error(err, "Failed to parse syncPeriod")
+		return reconcile.Result{}, err
+	}
+
+	if yes, nextSyncDelay := getNextDue(cr, *instance, time.Now()); !yes {
+		//TODO job will not be executed as per schedule time, delay due to processing
+		// schedule is not yet due
+		return reconcile.Result{Requeue: true, RequeueAfter: nextSyncDelay}, nil
 	}
 
 	//TODO
 	me := engine.NewMoveEngineAction(r.log, r.client, r.discoveryHelper)
 	err = me.ParseResourceEngine(instance)
 	if err != nil {
-		r.log.Error(err, "Failed to parse moveEngine")
+		r.log.Error(err, "Failed to parse resources")
+	}
+
+	dsName, err := me.CreateDataSync()
+	if err != nil || len(dsName) == 0 {
+		r.log.Error(err, "Failed to create dataSync CR")
 		return reconcile.Result{}, err
 	}
 
-	return reconcile.Result{}, nil
+	err = me.UpdateMoveEngineStatus(err, dsName)
+	if err != nil {
+		r.log.Error(err, "Failed to update status")
+	}
+
+	_, nextSyncDelay := getNextDue(cr, me.MEngine, time.Now())
+	return reconcile.Result{Requeue: true, RequeueAfter: nextSyncDelay}, nil
 }
 
 func (r *ReconcileMoveEngine) setupHelper() error {
@@ -150,4 +175,19 @@ func (r *ReconcileMoveEngine) setupHelper() error {
 		//		signals.SetupSignalHandler(),
 	)
 	return nil
+}
+
+func getNextDue(cr cron.Schedule, move v1alpha1.MoveEngine, now time.Time) (bool, time.Duration) {
+	var lastSync time.Time
+	if move.Status.SyncedTime.IsZero() {
+		if !move.Status.LastSyncedTime.IsZero() {
+			// engine hasn't been synced
+			lastSync = move.Status.LastSyncedTime.Time
+		}
+	} else {
+		lastSync = move.Status.SyncedTime.Time
+	}
+
+	nextSync := cr.Next(lastSync)
+	return now.After(nextSync), nextSync.Sub(lastSync)
 }

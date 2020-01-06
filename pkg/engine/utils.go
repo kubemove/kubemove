@@ -62,10 +62,9 @@ func (m *MoveEngineAction) addToSTSVolumeList(obj unstructured.Unstructured) {
 	m.stsVolMap[sr] = obj
 }
 
-func (m *MoveEngineAction) addToSyncedResourceList(obj unstructured.Unstructured) {
+func (m *MoveEngineAction) addToSyncedResourceList(obj unstructured.Unstructured, rs v1alpha1.ResourceStatus) {
 	sr := newMResourceFromObj(obj)
-	//TODO
-	m.syncedResourceMap[sr] = v1alpha1.ResourceStatus{}
+	m.syncedResourceMap[sr] = rs
 }
 
 func (m *MoveEngineAction) isResourceSynced(obj unstructured.Unstructured) bool {
@@ -76,9 +75,9 @@ func (m *MoveEngineAction) isResourceSynced(obj unstructured.Unstructured) bool 
 	return false
 }
 
-func (m *MoveEngineAction) addToSyncedVolumesList(obj unstructured.Unstructured) {
+func (m *MoveEngineAction) addToSyncedVolumesList(obj unstructured.Unstructured, vs v1alpha1.VolumeStatus) {
 	sr := newMResourceFromObj(obj)
-	m.syncedVolMap[sr] = v1alpha1.VolumeStatus{}
+	m.syncedVolMap[sr] = vs
 }
 
 func newMResourceFromObj(obj unstructured.Unstructured) MResources {

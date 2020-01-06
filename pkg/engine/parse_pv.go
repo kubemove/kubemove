@@ -1,8 +1,6 @@
 package engine
 
 import (
-	"fmt"
-
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -21,8 +19,9 @@ func (m *MoveEngineAction) parsePodPV(pv interface{}, ns string, isSTS bool) err
 	// In spec.volume, there are two field, one is name and other one is volume details
 	d, ok := pv.(map[string]interface{})
 	if !ok {
-		fmt.Printf("Failed to parse pod PV.. type is %T, expected Unstructured", pv)
-		return errors.Errorf("Failed to parse pod PV.. type is %T, expected Unstructured", pv)
+		err := errors.Errorf("Failed to parse pod PV.. type is %T, expected Unstructured", pv)
+		m.log.Error(err, "")
+		return err
 	}
 
 	for k, v := range d {
@@ -33,17 +32,25 @@ func (m *MoveEngineAction) parsePodPV(pv interface{}, ns string, isSTS bool) err
 			if ok {
 				pvName, err := fn(v, m, ns, isSTS)
 				if err != nil {
-					fmt.Printf("Failed to parse volumeSource for %v.. %v\n", k, err)
+					m.log.Error(err, "Failed to parse volumeSource", "type", k)
 					continue
 				}
 				if len(pvName) > 0 {
 					pvObj, err := m.getResource(pvName, "", "PersistentVolume")
 					if err != nil {
-						fmt.Printf("Failed to fetch PV %v.. %v\n", pvName, err)
+						m.log.Error(err, "Failed to fetch PV", "PV", pvName)
+						continue
 					}
+
+					if err := m.parsePVSC(pvObj); err != nil {
+						m.log.Error(err, "Failed to parse SC for PV", pvName)
+						continue
+					}
+
 					if yes := isPVDynamicallyProvisioned(pvObj); yes {
 						continue
 					}
+
 					if isSTS {
 						m.addToSTSVolumeList(pvObj)
 					} else {
@@ -61,12 +68,12 @@ func pvParsePVC(o interface{}, m *MoveEngineAction, ns string, isSTS bool) (stri
 	if !ok {
 		return "", errors.Errorf("Unexpected type of object")
 	}
-	val, ok, err := unstructured.NestedString(pvc, "claimName")
+	pvcName, ok, err := unstructured.NestedString(pvc, "claimName")
 	if !ok || err != nil {
 		return "", err
 	}
 
-	pvcObj, err := m.getResource(val, ns, "PersistentVolumeClaim")
+	pvcObj, err := m.getResource(pvcName, ns, "PersistentVolumeClaim")
 	if err != nil {
 		return "", err
 	}
@@ -75,12 +82,12 @@ func pvParsePVC(o interface{}, m *MoveEngineAction, ns string, isSTS bool) (stri
 		m.addToResourceList(pvcObj)
 	}
 
-	val, ok, err = unstructured.NestedString(pvcObj.Object, "spec", "volumeName")
+	pvName, ok, err := unstructured.NestedString(pvcObj.Object, "spec", "volumeName")
 	if !ok || err != nil {
 		return "", err
 	}
 
-	return val, nil
+	return pvName, nil
 }
 
 func isPVDynamicallyProvisioned(obj unstructured.Unstructured) bool {
@@ -105,24 +112,40 @@ func (m *MoveEngineAction) parseVolumes(api metav1.APIResource, obj unstructured
 
 	p, ok, err := unstructured.NestedFieldCopy(obj.Object, "spec", "volumes")
 	if !ok && err == nil {
-		fmt.Printf("No volumes for %v/%v\n", obj.GetKind(), obj.GetName())
+		m.log.Error(nil, "Volume does not exist.. skipping it", "Name", obj.GetName())
 		return nil
 	}
 	if err != nil {
-		fmt.Printf("Failed to get volumes for %v/%v.. %v\n", obj.GetKind(), obj.GetName(), err)
-		return err
+		return errors.Errorf("Failed to get volumes for pod %v.. %v", obj.GetName(), err)
 	}
 
 	pvlist, ok := p.([]interface{})
 	if !ok {
-		fmt.Printf("Failed to parse volume list for %v/%v.. type is %T, expected []interface{}\n", obj.GetKind(), obj.GetName(), p)
-		return errors.Errorf("Failed to parse volumes for %v/%v.. type is %T, expected []interface{}\n", obj.GetKind(), obj.GetName(), p)
+		return errors.Errorf("Failed to parse volume list for %v/%v.. type is %T, expected []interface{}\n",
+			obj.GetKind(), obj.GetName(), p)
 	}
 	for _, l := range pvlist {
 		err = m.parsePodPV(l, obj.GetNamespace(), isSTS)
 		if err != nil {
-			fmt.Printf("Failed to parse pod PV.. %v\n", err)
+			m.log.Error(err, "Failed to parse pod pv list", "Pod", obj.GetName(), "Namespace", obj.GetNamespace(), "PV", l)
 		}
+	}
+	return nil
+}
+
+func (m *MoveEngineAction) parsePVSC(pvObj unstructured.Unstructured) error {
+	scName, ok, err := unstructured.NestedString(pvObj.Object, "spec", "storageClassName")
+	if !ok || err != nil {
+		return err
+	}
+
+	scObj, err := m.getResource(scName, "", "StorageClass")
+	if err != nil {
+		return err
+	}
+
+	if yes := m.ShouldRestore(scObj); yes {
+		m.addToResourceList(scObj)
 	}
 	return nil
 }

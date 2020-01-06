@@ -11,7 +11,7 @@ spec:
         certificate-authority-data: REMOTE_CLUSTER_1 CA DATA
         server: REMOTE_CLUSTER_1 SERVER IP
     contexts:
-      # cluster name, remote-cluster-1
+      # context name, remote-cluster-1
       remote-cluster-1:
         cluster: remote-cluster-1
         user: USER_NAME
