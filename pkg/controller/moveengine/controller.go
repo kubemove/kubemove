@@ -8,6 +8,7 @@ import (
 	v1alpha1 "github.com/kubemove/kubemove/pkg/apis/kubemove/v1alpha1"
 	"github.com/kubemove/kubemove/pkg/engine"
 	"github.com/kubemove/kubemove/pkg/gcp"
+	"github.com/kubemove/kubemove/pkg/plugin/ddm/server"
 	"github.com/pkg/errors"
 	"github.com/robfig/cron"
 	"github.com/sirupsen/logrus"
@@ -36,10 +37,17 @@ func Add(mgr manager.Manager) error {
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
+	ddm, err := server.NewDDMServer()
+	if err != nil {
+		log.Error(err, "Failed to create DDM server")
+		return nil
+	}
+
 	return &ReconcileMoveEngine{
 		client:          mgr.GetClient(),
 		scheme:          mgr.GetScheme(),
 		discoveryHelper: nil,
+		ddm:             ddm,
 	}
 }
 
@@ -75,6 +83,7 @@ type ReconcileMoveEngine struct {
 	scheme          *runtime.Scheme
 	discoveryHelper helper.Helper
 	log             logr.Logger
+	ddm             server.DDM
 }
 
 // Reconcile reads that state of the cluster for a MoveEngine object and makes changes based on the state read
@@ -112,6 +121,20 @@ func (r *ReconcileMoveEngine) Reconcile(request reconcile.Request) (reconcile.Re
 		//TODO need to update it in status
 		r.log.Error(err, "Validation error")
 		return reconcile.Result{}, err
+	}
+
+	if instance.Status.Status == "" {
+		err := r.ddm.Init(
+			instance.Spec.PluginProvider,
+			map[string]string{
+				"movePair":   instance.Spec.MovePair,
+				"moveEngine": instance.Name,
+			},
+		)
+		if err != nil {
+			r.log.Error(err, "Failed to initialize plugin")
+			return reconcile.Result{}, err
+		}
 	}
 
 	cr, err := cron.ParseStandard(instance.Spec.SyncPeriod)

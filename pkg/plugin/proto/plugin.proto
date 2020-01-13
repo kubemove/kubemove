@@ -1,0 +1,49 @@
+syntax = "proto3";
+package proto;
+
+service DataSyncer {
+  rpc Init(InitRequest) returns (InitResponse);
+
+  rpc SyncData(SyncRequest) returns (SyncResponse);
+
+  rpc SyncStatus(SyncStatusRequest) returns (SyncStatusResponse);
+}
+
+message InitRequest {
+    map <string, string> config = 2;
+}
+
+message InitResponse {
+    int32 status = 1;
+    string reason  = 2;
+}
+
+message SyncRequest {
+    string engine = 1;
+    bool restore = 2;
+    message SyncVolRequest {
+      string volumeName = 1;
+      string volumeClaim = 2;
+      string remoteVolumeClaim = 3;
+      string localNS = 4;
+      string remoteNS = 5;
+    }
+    map <string, SyncVolRequest> volumeList = 3;
+    map <string, string> params = 4;
+}
+
+message SyncResponse {
+  string syncID = 1;
+  string reason = 2;
+}
+
+message SyncStatusRequest {
+  string syncID = 1;
+  string reason = 2;
+}
+
+message SyncStatusResponse {
+  int32 status = 1;
+  string reason = 2;
+  map <string, string> params = 3;
+}

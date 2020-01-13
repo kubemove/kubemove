@@ -1,10 +1,12 @@
-all: kubemove-cli datasync engine pair
+all: datasync engine pair dummy_plugin
 
 PACKAGES = $(shell go list ./... | grep -v 'vendor')
 
 HUB_USER?=mayankrpatel
 ENGINE_IMG?=$(HUB_USER)/move-engine
 PAIR_IMG?=$(HUB_USER)/move-pair
+DS_IMG?=$(HUB_USER)/move-ds
+PLUGIN_IMG?=$(HUB_USER)/move-plugin
 
 IMG_TAG=ci
 
@@ -51,6 +53,12 @@ pair: build_dir
 	@go build -o ${BUILD_DIR}/bin/kpair cmd/pair/main.go
 	@echo "Done"
 
+dummy_plugin: build_dir
+	@echo "Building dummy plugin"
+	@rm -rf _output/bin/dummy_plugin
+	@go build -o ${BUILD_DIR}/bin/dummy_plugin cmd/dummy_plugin/dummy_plugin.go
+	@echo "Done"
+
 clean:
 	@echo "Removing old binaries"
 	@rm -rf ${BUILD_DIR}
@@ -63,6 +71,15 @@ engine-image: base-image engine
 pair-image: base-image pair
 	@echo "Building docker image for kubemove-pair"
 	@docker build -t $(PAIR_IMG):$(IMG_TAG) -f build/Dockerfile-pair --build-arg BASE_IMG=${BASE_ENGINE_IMG}:${BASE_ENGINE_TAG}  ./build
+
+datasync-image: datasync
+	@echo "Building docker image for kubemove-datasync"
+	@docker build -t $(DS_IMG):$(IMG_TAG) -f build/Dockerfile-ds ./build
+
+dummy_plugin-image: dummy_plugin
+	@echo "Building docker image for dummy kubemove-plugin"
+	@docker build -t $(PLUGIN_IMG):$(IMG_TAG) -f build/Dockerfile-plugin ./build
+
 
 base-image:
 	@echo "Building base docker image for kubemove"

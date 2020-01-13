@@ -8,6 +8,8 @@ spec:
   movePair: cluster1
   namespace: ns1
   remoteNamespace: ns2
+  syncPeriod: "30 * * * *"
+  plugin: dummy
   selectors:
     matchLabels:
       name: app1

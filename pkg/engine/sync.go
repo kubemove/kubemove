@@ -136,9 +136,11 @@ func (m *MoveEngineAction) transformObj(obj unstructured.Unstructured) error {
 			_ = unstructured.SetNestedField(obj.Object, "", "spec", "clusterIP")
 		}
 	case "PersistentVolumeClaim":
+		//TODO
 		unstructured.RemoveNestedField(obj.Object, "metadata", "annotations")
 		unstructured.RemoveNestedField(obj.Object, "spec", "volumeName")
 	case "PersistentVolume":
+		//TODO
 		unstructured.RemoveNestedField(obj.Object, "metadata", "annotations")
 		unstructured.RemoveNestedField(obj.Object, "spec", "claimRef")
 	}

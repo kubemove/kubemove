@@ -1,0 +1,8 @@
+FROM ubuntu:bionic
+
+LABEL maintainer="Mayank Patel<mayank.patel@mayadata.io>"
+
+
+COPY _output/bin/datasync /
+
+ENTRYPOINT ["/datasync"]

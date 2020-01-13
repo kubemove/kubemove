@@ -1,0 +1,16 @@
+syntax = "proto3";
+package proto;
+
+message Request {
+  string name = 1;
+  string address = 2;
+}
+
+message Response {
+  string response = 1;
+  string reason = 2;
+}
+
+service Register {
+  rpc RegisterPlugin(Request) returns (Response);
+}
