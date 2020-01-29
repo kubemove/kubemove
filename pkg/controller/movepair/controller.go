@@ -9,7 +9,6 @@ import (
 	kmpair "github.com/kubemove/kubemove/pkg/pair"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -107,7 +106,7 @@ func (r *ReconcileMovePair) Reconcile(request reconcile.Request) (reconcile.Resu
 }
 
 func (r *ReconcileMovePair) verifyMovePairStatus(mpair *kubemovev1alpha1.MovePair) (string, error) {
-	err := clientcmd.Validate(mpair.Spec.Config)
+	err := kmpair.Validate(mpair)
 	if err != nil {
 		return "Errored", err
 	}

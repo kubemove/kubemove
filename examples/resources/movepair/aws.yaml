@@ -6,21 +6,23 @@ metadata:
 spec:
   config:
     clusters:
-      # cluster name, remote-cluster-1
-      remote-cluster-1:
+    - cluster:
         certificate-authority-data: REMOTE_CLUSTER_1 CA DATA
         server: REMOTE_CLUSTER_1 SERVER IP
+      # cluster name, remote-cluster-1
+      name: remote-cluster-1
     contexts:
-      # context name, remote-cluster-1
-      remote-cluster-1:
+    - context:
         cluster: remote-cluster-1
         user: USER_NAME
+      # context name, remote-cluster-1
+      name: remote-cluster-1
     # current context if multiple clusters are added in pair, remote-cluster-1
     current-context: remote-cluster-1
     preferences: {}
     users:
-      #username
-      USER_NAME:
+    - name: USER_NAME
+      user:
         exec:
           apiVersion: client.authentication.k8s.io/v1alpha1
           args:
