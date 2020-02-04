@@ -1,0 +1,24 @@
+apiVersion: elasticsearch.k8s.elastic.co/v1
+kind: Elasticsearch
+metadata:
+  name: sample-es
+spec:
+  version: 7.5.2
+  secureSettings:
+  - secretName: minio-credentials
+  http:
+    service:
+      spec:
+        type: NodePort
+  nodeSets:
+  - name: default
+    count: 2
+    podTemplate:
+      spec:
+        initContainers:
+        - name: install-plugins
+          command:
+          - sh
+          - -c
+          - |
+            bin/elasticsearch-plugin install --batch repository-s3

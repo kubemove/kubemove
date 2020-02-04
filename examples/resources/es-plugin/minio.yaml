@@ -1,0 +1,70 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  labels:
+    app: minio-server
+  name: minio-pvc
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+  storageClassName: standard
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: minio-server
+spec:
+  selector:
+    matchLabels:
+      app: minio-server
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: minio-server
+    spec:
+      containers:
+      - args:
+        - server
+        - /storage
+        env:
+        - name: MINIO_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: minio-credentials
+              key: s3.client.default.access_key
+        - name: MINIO_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: minio-credentials
+              key: s3.client.default.secret_key
+        image: minio/minio
+        name: minio-server
+        ports:
+        - containerPort: 9000
+          protocol: TCP
+        volumeMounts:
+        - mountPath: /storage
+          name: minio-storage
+      volumes:
+      - name: minio-storage
+        persistentVolumeClaim:
+          claimName: minio-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio
+spec:
+  ports:
+  - port: 9000
+    protocol: TCP
+    targetPort: 9000
+  selector:
+    app: minio-server
+  type: NodePort
