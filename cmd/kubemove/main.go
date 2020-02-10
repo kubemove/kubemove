@@ -5,7 +5,7 @@ import (
 
 	"github.com/spf13/pflag"
 
-	plugin "github.com/kubemove/kubemove/pkg/plugin/v1alpha1"
+	"github.com/kubemove/kubemove/pkg/plugin/ddm/plugin"
 )
 
 func main() {
