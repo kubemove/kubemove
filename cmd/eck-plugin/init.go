@@ -5,11 +5,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 
 	"github.com/elastic/go-elasticsearch/v7/esapi"
 )
 
-type RepoCreateRequestBodyTemplate struct {
+type RepoCreateRequestBody struct {
 	Type     string             `json:"type"`
 	Settings RepositorySettings `json:"settings"`
 }
@@ -29,50 +30,50 @@ type RepoCreateRequestRespone struct {
 // registerSnapshotRepository hits Snapshot API of Elasticsearch to register a repository
 func (d *eckDDM) registerSnapshotRepository(params PluginParameters, mode string) error {
 
-	bodyTemplate := RepoCreateRequestBodyTemplate{
+	// crate an Elasticsearch client
+	esClient, err := d.newElasticsearchClient(params.Elasticsearch)
+	if err != nil {
+		return err
+	}
+
+	// configure request body
+	body := RepoCreateRequestBody{
 		Type: params.Repository.Type,
 	}
-
 	if params.Repository.Prefix != "" {
-		bodyTemplate.Settings.BasePath = params.Repository.Prefix
+		body.Settings.BasePath = params.Repository.Prefix
 	}
 	if params.Repository.Endpoint != "" {
-		bodyTemplate.Settings.Endpoint = params.Repository.Endpoint
+		body.Settings.Endpoint = params.Repository.Endpoint
 	}
 	if params.Repository.Scheme != "" {
-		bodyTemplate.Settings.Protocol = params.Repository.Scheme
+		body.Settings.Protocol = params.Repository.Scheme
 	}
-	if mode != "active" {
-		bodyTemplate.Settings.ReadOnly = "true"
+	if mode != EngineModeActive {
+		body.Settings.ReadOnly = "true"
 	}
 
-	body, err := json.Marshal(bodyTemplate)
+	jsonBody, err := json.Marshal(body)
 	if err != nil {
 		return err
 	}
 
-	repo := esapi.SnapshotCreateRepositoryRequest{
+	// configure snapshot repository create request
+	repoRequest := esapi.SnapshotCreateRepositoryRequest{
 		Repository: params.Repository.Name,
-		Body:       bytes.NewReader(body),
+		Body:       bytes.NewReader(jsonBody),
 	}
 
-	// TODO: Add Authorization Headers
-	// TODO: Add TLS Certificates
-
-	resp, err := repo.Do(context.Background(), nil)
+	// register repository
+	resp, err := repoRequest.Do(context.Background(), esClient)
 	if err != nil {
 		return err
 	}
 
-	defer resp.Body.Close()
-
-	var x RepoCreateRequestRespone
-	err = json.NewDecoder(resp.Body).Decode(&x)
-	if err != nil {
-		return err
-	}
-	if !x.Accpeted {
-		return fmt.Errorf("failed to create Repository")
+	if resp.StatusCode != http.StatusAccepted {
+		defer resp.Body.Close()
+		// TODO: parse the response body and identify the failure cause
+		return fmt.Errorf("failed to register Snapshot Repository to the Elasticsearch. Reason: ")
 	}
 	return nil
 }

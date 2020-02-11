@@ -9,9 +9,9 @@ type Volume struct {
 }
 
 type Plugin interface {
-	Status(string) (int32, error)
-	Sync(string, bool, map[string]string, []*Volume) (string, error)
-	Init(map[string]string) error
+	Init(map[string]interface{}) error
+	Sync(map[string]interface{}, []*Volume) (string, error)
+	Status(map[string]interface{}) (int32, error)
 }
 
 const (
