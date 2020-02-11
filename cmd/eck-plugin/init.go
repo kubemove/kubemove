@@ -29,7 +29,6 @@ type RepoCreateRequestRespone struct {
 
 // registerSnapshotRepository hits Snapshot API of Elasticsearch to register a repository
 func (d *eckDDM) registerSnapshotRepository(params PluginParameters, mode string) error {
-
 	// crate an Elasticsearch client
 	esClient, err := d.newElasticsearchClient(params.Elasticsearch)
 	if err != nil {

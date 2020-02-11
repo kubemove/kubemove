@@ -4,10 +4,7 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	"github.com/kubemove/kubemove/pkg/apis/kubemove/v1alpha1"
 	client "github.com/kubemove/kubemove/pkg/plugin/ddm/plugin"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -17,11 +14,16 @@ import (
 
 const (
 	PluginVersion       = "7.x"
-	MoveEngineName      = "engine-name"
-	MoveEngineNamespace = "engine-namespace"
+	MoveEngineName      = "engineName"
+	MoveEngineNamespace = "engineNamespace"
 
 	RepositoryParameters   = "repository"
 	ElasticsearchParameter = "elasticsearch"
+
+	EngineModeActive = "active"
+	ElasticUser      = "elastic"
+	TLSCertKey       = "tls.crt"
+	KeySnapshotName  = "snapshotName"
 )
 
 type eckDDM struct {
@@ -51,7 +53,7 @@ type ElasticsearchOptions struct {
 	Namespace   string `json:"namespace"`
 	Scheme      string `json:"scheme"`
 	AuthSecret  string `json:"authSecret"`
-	TlsSecret   string `json:"tlsSecret,omitempty"`
+	TLSSecret   string `json:"tlsSecret,omitempty"`
 }
 
 var _ client.Plugin = (*eckDDM)(nil)
@@ -65,7 +67,7 @@ func main() {
 		utilruntime.Must(err)
 	}
 
-	err := client.Register("eck-plugin",
+	err = client.Register("eck-plugin",
 		&eckDDM{
 			log:       log,
 			k8sClient: kubernetes.NewForConfigOrDie(config),
@@ -77,86 +79,57 @@ func main() {
 	}
 }
 
-func (d *eckDDM) Init(params map[string]string) error {
-	// Register Snapshot Repository in the Elasticsearch
-	engineName, ok := params[MoveEngineName]
-	if !ok {
-		return fmt.Errorf("MoveEngine name not found in the paramters")
-	}
-
-	engineNamespace, ok := params[MoveEngineNamespace]
-	if !ok {
-		return fmt.Errorf("MoveEngine namespace not found in the paramters")
-	}
-
-	pluginParameters, err := d.getPluginParameters(engineName, engineNamespace)
+func (d *eckDDM) Init(params map[string]interface{}) error {
+	// extract the plugin parameters from the respective MoveEngine
+	pluginParameters, mode, err := d.extractPluginParameters(params)
 	if err != nil {
 		return err
 	}
 
-	return d.registerSnapshotRepository(pluginParameters)
+	// Register Snapshot Repository in the Elasticsearch
+	return d.registerSnapshotRepository(pluginParameters, mode)
 }
 
-func (d *eckDDM) Sync(engine string, isSourceCluster bool, params map[string]string, vol []*client.Volume) (string, error) {
-	// trigger a snapshot in the source ES in backup phase
-	if isSourceCluster {
-		return d.triggerSnapshot(params)
-	} else {
-		// trigger a restore in the destination ES in restore phase
-		return d.triggerRestore(params)
-
-	}
-
-	return "what the use of this?", nil
-}
-
-func (d *eckDDM) Status(engine, snapshotId string, isSourceCluster bool) (int32, error) {
-
-	// send snapshot state on backup status request
-	if isSourceCluster {
-		return 0, d.retrieveSnapshotState("should send Snapshot name")
-	} else {
-		// send restore state on restore status request
-		return 0, d.retrieveRestoreState("should send Snapshot name")
-	}
-
-	return 0, nil
-}
-
-func (d *eckDDM) getPluginParameters(engineName, engineNamespace string) (PluginParameters, error) {
-	parameters := PluginParameters{}
-
-	moveEngineGVR := v1alpha1.SchemeGroupVersion.WithResource(v1alpha1.ResourcePluralMoveEngine)
-
-	resp, err := d.dmClient.Resource(moveEngineGVR).Namespace(engineNamespace).Get(engineName, metav1.GetOptions{})
+func (d *eckDDM) Sync(params map[string]interface{}, vol []*client.Volume) (string, error) {
+	// extract the plugin parameters from the respective MoveEngine
+	pluginParameters, mode, err := d.extractPluginParameters(params)
 	if err != nil {
-		return parameters, err
+		return "", err
 	}
 
-	var moveEngine v1alpha1.MoveEngine
-	err = runtime.DefaultUnstructuredConverter.FromUnstructured(resp.UnstructuredContent(), &moveEngine)
+	val, found := params[KeySnapshotName]
+	if !found {
+		return "", fmt.Errorf("snapshot name not found in the parameters")
+	}
+	snapshotName := val.(string)
+
+	// if it is source cluster, then trigger a snapshot
+	if mode == EngineModeActive {
+		return d.triggerSnapshot(pluginParameters, snapshotName)
+	} else {
+		// if it is destination cluster, then trigger a restore
+		return d.triggerRestore(pluginParameters, snapshotName)
+	}
+}
+
+func (d *eckDDM) Status(params map[string]interface{}) (int32, error) {
+	// extract the plugin parameters from the respective MoveEngine
+	pluginParameters, mode, err := d.extractPluginParameters(params)
 	if err != nil {
-		return parameters, err
+		return client.Errored, err
 	}
 
-	repoParams, ok := moveEngine.Spec.PluginParameters[RepositoryParameters]
-	if !ok {
-		return parameters, fmt.Errorf("repository parameters not found in pluginParameters")
+	val, found := params[KeySnapshotName]
+	if !found {
+		return client.Errored, fmt.Errorf("snapshot name not found in the parameters")
 	}
+	snapshotName := val.(string)
 
-	parameters.Repository, ok = repoParams.(RepositoryOptions)
-	if !ok {
-		return parameters, fmt.Errorf("failed to cast repository prameters into RepositoryOptions")
+	// if it is active cluster, then send the backup state
+	if mode == EngineModeActive {
+		return d.retrieveBackupState(pluginParameters, snapshotName)
+	} else {
+		// if it is destination cluster, then send restore status
+		return d.retrieveRestoreState(pluginParameters, snapshotName)
 	}
-
-	esParams, ok := moveEngine.Spec.PluginParameters[ElasticsearchParameter]
-	if !ok {
-		return parameters, fmt.Errorf("elasticsearch parameters not found in pluginParameters")
-	}
-	parameters.Elasticsearch, ok = esParams.(ElasticsearchOptions)
-	if !ok {
-		return parameters, fmt.Errorf("failed to cast elasticsearch prameters into ElasticsearchOptions")
-	}
-
-	return parameters, nil
 }
