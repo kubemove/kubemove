@@ -10,17 +10,15 @@ service DataSyncer {
 }
 
 message InitRequest {
-    map <string, string> config = 2;
+    map <string, string> params = 1;
 }
 
 message InitResponse {
-    int32 status = 1;
-    string reason  = 2;
 }
 
 message SyncRequest {
-    string engine = 1;
-    bool restore = 2;
+   map <string, string> params = 1;
+
     message SyncVolRequest {
       string volumeName = 1;
       string volumeClaim = 2;
@@ -28,22 +26,17 @@ message SyncRequest {
       string localNS = 4;
       string remoteNS = 5;
     }
-    map <string, SyncVolRequest> volumeList = 3;
-    map <string, string> params = 4;
+    map <string, SyncVolRequest> volumeList = 2;
 }
 
 message SyncResponse {
   string syncID = 1;
-  string reason = 2;
 }
 
 message SyncStatusRequest {
-  string syncID = 1;
-  string reason = 2;
+  map <string,string> params = 1;
 }
 
 message SyncStatusResponse {
   int32 status = 1;
-  string reason = 2;
-  map <string, string> params = 3;
 }

@@ -1,0 +1,152 @@
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: datasyncs.kubemove.io
+spec:
+  group: kubemove.io
+  names:
+    kind: DataSync
+    listKind: DataSyncList
+    plural: datasyncs
+    singular: datasync
+  scope: ""
+  validation:
+    openAPIV3Schema:
+      description: DataSync is the Schema for the datasyncs API
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: DataSyncSpec defines the desired state of DataSync
+          properties:
+            backup:
+              type: boolean
+            config:
+              additionalProperties:
+                type: string
+              type: object
+            moveEngine:
+              type: string
+            namespace:
+              type: string
+            plugin:
+              type: string
+            restore:
+              type: boolean
+            volume:
+              description: 'INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
+                Important: Run "operator-sdk generate k8s" to regenerate code after
+                modifying this file Add custom validation using kubebuilder tags:
+                https://book.kubebuilder.io/beyond_basics/generating_crd.html'
+              items:
+                description: DataVolume defines volume space for dataSync
+                properties:
+                  name:
+                    type: string
+                  namespace:
+                    type: string
+                  param:
+                    additionalProperties:
+                      type: string
+                    type: object
+                  pvc:
+                    type: string
+                  remoteName:
+                    type: string
+                  remoteNamespace:
+                    type: string
+                required:
+                - name
+                - namespace
+                - param
+                - pvc
+                - remoteName
+                - remoteNamespace
+                type: object
+              type: array
+          required:
+          - backup
+          - config
+          - moveEngine
+          - namespace
+          - plugin
+          - restore
+          - volume
+          type: object
+        status:
+          description: DataSyncStatus defines the observed state of DataSync
+          properties:
+            completionTime:
+              type: string
+            reason:
+              type: string
+            stage:
+              description: 'INSERT ADDITIONAL STATUS FIELD - define observed state
+                of cluster Important: Run "operator-sdk generate k8s" to regenerate
+                code after modifying this file Add custom validation using kubebuilder
+                tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html'
+              type: string
+            status:
+              type: string
+            volume:
+              items:
+                description: VolumeStatus sync status of volumes
+                properties:
+                  RemoteVolume:
+                    type: string
+                  Status:
+                    type: string
+                  Synced:
+                    format: date-time
+                    type: string
+                  Volume:
+                    type: string
+                  lastStatus:
+                    type: string
+                  lastSyncedTime:
+                    format: date-time
+                    type: string
+                  namespace:
+                    type: string
+                  pvc:
+                    type: string
+                  reason:
+                    type: string
+                  remoteNamespace:
+                    type: string
+                required:
+                - RemoteVolume
+                - Status
+                - Synced
+                - Volume
+                - lastStatus
+                - lastSyncedTime
+                - namespace
+                - pvc
+                - reason
+                - remoteNamespace
+                type: object
+              type: array
+          required:
+          - completionTime
+          - reason
+          - stage
+          - status
+          - volume
+          type: object
+      type: object
+  version: v1alpha1
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true

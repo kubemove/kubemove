@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net/http"
 
+	"k8s.io/client-go/kubernetes"
+
 	"github.com/elastic/go-elasticsearch/v7/esapi"
 )
 
@@ -20,9 +22,9 @@ const (
 )
 
 // triggerSnapshot hits the Snapshot API of Elasticsearch to trigger a snapshot
-func (d *eckDDM) triggerSnapshot(params PluginParameters, snapshotName string) (string, error) {
+func triggerSnapshot(k8sClient kubernetes.Interface, params PluginParameters, snapshotName string) (string, error) {
 	// crate an Elasticsearch client
-	esClient, err := d.newElasticsearchClient(params.Elasticsearch)
+	esClient, err := newElasticsearchClient(k8sClient, params.Elasticsearch)
 	if err != nil {
 		return "", err
 	}
@@ -49,9 +51,9 @@ func (d *eckDDM) triggerSnapshot(params PluginParameters, snapshotName string) (
 }
 
 // triggerRestore hits the Recovery API of Elasticsearch to trigger a restore process
-func (d *eckDDM) triggerRestore(params PluginParameters, snapshotName string) (string, error) {
+func triggerRestore(k8sClient kubernetes.Interface, params PluginParameters, snapshotName string) (string, error) {
 	// crate an Elasticsearch client
-	esClient, err := d.newElasticsearchClient(params.Elasticsearch)
+	esClient, err := newElasticsearchClient(k8sClient, params.Elasticsearch)
 	if err != nil {
 		return "", err
 	}

@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"net/http"
 
+	"k8s.io/client-go/kubernetes"
+
 	"github.com/elastic/go-elasticsearch/v7/esapi"
 )
 
@@ -28,9 +30,9 @@ type RepoCreateRequestRespone struct {
 }
 
 // registerSnapshotRepository hits Snapshot API of Elasticsearch to register a repository
-func (d *eckDDM) registerSnapshotRepository(params PluginParameters, mode string) error {
+func registerSnapshotRepository(k8sClient kubernetes.Interface, params PluginParameters, mode string) error {
 	// crate an Elasticsearch client
-	esClient, err := d.newElasticsearchClient(params.Elasticsearch)
+	esClient, err := newElasticsearchClient(k8sClient, params.Elasticsearch)
 	if err != nil {
 		return err
 	}

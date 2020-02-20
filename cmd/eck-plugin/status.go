@@ -5,14 +5,16 @@ import (
 	"fmt"
 	"net/http"
 
+	"k8s.io/client-go/kubernetes"
+
 	"github.com/elastic/go-elasticsearch/v7/esapi"
 	client "github.com/kubemove/kubemove/pkg/plugin/ddm/plugin"
 )
 
 // retrieveSnapshotState hits the Snapshot API of Elasticsearch to retrieve the backup status of a Snapshot
-func (d *eckDDM) retrieveBackupState(params PluginParameters, snapshotName string) (int32, error) {
+func retrieveBackupState(k8sClient kubernetes.Interface, params PluginParameters, snapshotName string) (int32, error) {
 	// crate an Elasticsearch client
-	esClient, err := d.newElasticsearchClient(params.Elasticsearch)
+	esClient, err := newElasticsearchClient(k8sClient, params.Elasticsearch)
 	if err != nil {
 		return client.Errored, err
 	}
@@ -40,9 +42,9 @@ func (d *eckDDM) retrieveBackupState(params PluginParameters, snapshotName strin
 }
 
 // retrieveRestoreState hits the Recovery API of Elasticsearch to retrieve the restore status of a ES.
-func (d *eckDDM) retrieveRestoreState(params PluginParameters, snapshotName string) (int32, error) {
+func retrieveRestoreState(k8sClient kubernetes.Interface, params PluginParameters, snapshotName string) (int32, error) {
 	// crate an Elasticsearch client
-	esClient, err := d.newElasticsearchClient(params.Elasticsearch)
+	esClient, err := newElasticsearchClient(k8sClient, params.Elasticsearch)
 	if err != nil {
 		return client.Errored, err
 	}

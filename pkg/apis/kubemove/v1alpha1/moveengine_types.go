@@ -2,6 +2,7 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -27,7 +28,7 @@ type MoveEngineSpec struct {
 	Mode             string                `json:"mode"`
 	PluginProvider   string                `json:"plugin"`
 	IncludeResources bool                  `json:"includeResources"`
-	PluginParameters map[string]interface{} `json:"pluginParameters,omitempty"`
+	PluginParameters *runtime.RawExtension `json:"pluginParameters,omitempty"`
 }
 
 // MoveEngineStatus defines the observed state of MoveEngine

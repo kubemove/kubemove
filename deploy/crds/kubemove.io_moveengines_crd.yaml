@@ -1,0 +1,209 @@
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: moveengines.kubemove.io
+spec:
+  group: kubemove.io
+  names:
+    kind: MoveEngine
+    listKind: MoveEngineList
+    plural: moveengines
+    singular: moveengine
+  scope: ""
+  validation:
+    openAPIV3Schema:
+      description: MoveEngine is the Schema for the moveengines API
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: MoveEngineSpec defines the desired state of MoveEngine
+          properties:
+            includeResources:
+              type: boolean
+            mode:
+              type: string
+            movePair:
+              description: 'INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
+                Important: Run "operator-sdk generate k8s" to regenerate code after
+                modifying this file Add custom validation using kubebuilder tags:
+                https://book.kubebuilder.io/beyond_basics/generating_crd.html'
+              type: string
+            namespace:
+              type: string
+            plugin:
+              type: string
+            pluginParameters:
+              type: object
+            remoteNamespace:
+              type: string
+            selectors:
+              description: A label selector is a label query over a set of resources.
+                The result of matchLabels and matchExpressions are ANDed. An empty
+                label selector matches all objects. A null label selector matches
+                no objects.
+              properties:
+                matchExpressions:
+                  description: matchExpressions is a list of label selector requirements.
+                    The requirements are ANDed.
+                  items:
+                    description: A label selector requirement is a selector that contains
+                      values, a key, and an operator that relates the key and values.
+                    properties:
+                      key:
+                        description: key is the label key that the selector applies
+                          to.
+                        type: string
+                      operator:
+                        description: operator represents a key's relationship to a
+                          set of values. Valid operators are In, NotIn, Exists and
+                          DoesNotExist.
+                        type: string
+                      values:
+                        description: values is an array of string values. If the operator
+                          is In or NotIn, the values array must be non-empty. If the
+                          operator is Exists or DoesNotExist, the values array must
+                          be empty. This array is replaced during a strategic merge
+                          patch.
+                        items:
+                          type: string
+                        type: array
+                    required:
+                    - key
+                    - operator
+                    type: object
+                  type: array
+                matchLabels:
+                  additionalProperties:
+                    type: string
+                  description: matchLabels is a map of {key,value} pairs. A single
+                    {key,value} in the matchLabels map is equivalent to an element
+                    of matchExpressions, whose key field is "key", the operator is
+                    "In", and the values array contains only "value". The requirements
+                    are ANDed.
+                  type: object
+              type: object
+            syncPeriod:
+              type: string
+          required:
+          - includeResources
+          - mode
+          - movePair
+          - namespace
+          - plugin
+          - remoteNamespace
+          - selectors
+          - syncPeriod
+          type: object
+        status:
+          description: MoveEngineStatus defines the observed state of MoveEngine
+          properties:
+            DataSync:
+              type: string
+            DataSyncStatus:
+              type: string
+            LastStatus:
+              type: string
+            LastSyncedTime:
+              format: date-time
+              type: string
+            Resources:
+              items:
+                description: ResourceStatus sync status of resource
+                properties:
+                  Synced:
+                    format: date-time
+                    type: string
+                  kind:
+                    type: string
+                  name:
+                    type: string
+                  phase:
+                    type: string
+                  reason:
+                    type: string
+                  status:
+                    type: string
+                required:
+                - Synced
+                - kind
+                - name
+                - phase
+                - reason
+                - status
+                type: object
+              type: array
+            Status:
+              description: 'INSERT ADDITIONAL STATUS FIELD - define observed state
+                of cluster Important: Run "operator-sdk generate k8s" to regenerate
+                code after modifying this file Add custom validation using kubebuilder
+                tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html'
+              type: string
+            SyncedTime:
+              format: date-time
+              type: string
+            Volumes:
+              items:
+                description: VolumeStatus sync status of volumes
+                properties:
+                  RemoteVolume:
+                    type: string
+                  Status:
+                    type: string
+                  Synced:
+                    format: date-time
+                    type: string
+                  Volume:
+                    type: string
+                  lastStatus:
+                    type: string
+                  lastSyncedTime:
+                    format: date-time
+                    type: string
+                  namespace:
+                    type: string
+                  pvc:
+                    type: string
+                  reason:
+                    type: string
+                  remoteNamespace:
+                    type: string
+                required:
+                - RemoteVolume
+                - Status
+                - Synced
+                - Volume
+                - lastStatus
+                - lastSyncedTime
+                - namespace
+                - pvc
+                - reason
+                - remoteNamespace
+                type: object
+              type: array
+          required:
+          - DataSync
+          - DataSyncStatus
+          - LastStatus
+          - LastSyncedTime
+          - Resources
+          - Status
+          - SyncedTime
+          - Volumes
+          type: object
+      type: object
+  version: v1alpha1
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true

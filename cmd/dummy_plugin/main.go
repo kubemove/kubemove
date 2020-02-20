@@ -32,13 +32,13 @@ func (d *dummyDDM) Init(param map[string]string) error {
 	return nil
 }
 
-func (d *dummyDDM) Sync(engine string, isOwner bool, param map[string]string, vol []*client.Volume) (string, error) {
-	d.log.Info("Syncing engine %v", engine)
+func (d *dummyDDM) Sync( param map[string]string, vol []*client.Volume) (string, error) {
+	d.log.Info("Syncing engine %v", param["engineName"])
 	d.log.Info("Synced vol %v", vol)
 	return "dummy_id", nil
 }
 
-func (d *dummyDDM) Status(id string) (int32, error) {
-	d.log.Info("got request for id %v", id)
+func (d *dummyDDM) Status(param map[string]string) (int32, error) {
+	d.log.Info("got request for id %v", param["snapshotName"])
 	return 0, nil
 }

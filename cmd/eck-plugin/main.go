@@ -79,57 +79,55 @@ func main() {
 	}
 }
 
-func (d *eckDDM) Init(params map[string]interface{}) error {
+func (d *eckDDM) Init(params map[string]string) error {
 	// extract the plugin parameters from the respective MoveEngine
-	pluginParameters, mode, err := d.extractPluginParameters(params)
+	pluginParameters, mode, err := extractPluginParameters(d.dmClient, params)
 	if err != nil {
 		return err
 	}
 
 	// Register Snapshot Repository in the Elasticsearch
-	return d.registerSnapshotRepository(pluginParameters, mode)
+	return registerSnapshotRepository(d.k8sClient, pluginParameters, mode)
 }
 
-func (d *eckDDM) Sync(params map[string]interface{}, vol []*client.Volume) (string, error) {
+func (d *eckDDM) Sync(params map[string]string, vol []*client.Volume) (string, error) {
 	// extract the plugin parameters from the respective MoveEngine
-	pluginParameters, mode, err := d.extractPluginParameters(params)
+	pluginParameters, mode, err := extractPluginParameters(d.dmClient, params)
 	if err != nil {
 		return "", err
 	}
 
-	val, found := params[KeySnapshotName]
+	snapshotName, found := params[KeySnapshotName]
 	if !found {
 		return "", fmt.Errorf("snapshot name not found in the parameters")
 	}
-	snapshotName := val.(string)
 
 	// if it is source cluster, then trigger a snapshot
 	if mode == EngineModeActive {
-		return d.triggerSnapshot(pluginParameters, snapshotName)
+		return triggerSnapshot(d.k8sClient, pluginParameters, snapshotName)
 	} else {
 		// if it is destination cluster, then trigger a restore
-		return d.triggerRestore(pluginParameters, snapshotName)
+		return triggerRestore(d.k8sClient, pluginParameters, snapshotName)
 	}
 }
 
-func (d *eckDDM) Status(params map[string]interface{}) (int32, error) {
+func (d *eckDDM) Status(params map[string]string) (int32, error) {
 	// extract the plugin parameters from the respective MoveEngine
-	pluginParameters, mode, err := d.extractPluginParameters(params)
+	pluginParameters, mode, err := extractPluginParameters(d.dmClient, params)
 	if err != nil {
 		return client.Errored, err
 	}
 
-	val, found := params[KeySnapshotName]
+	snapshotName, found := params[KeySnapshotName]
 	if !found {
 		return client.Errored, fmt.Errorf("snapshot name not found in the parameters")
 	}
-	snapshotName := val.(string)
 
 	// if it is active cluster, then send the backup state
 	if mode == EngineModeActive {
-		return d.retrieveBackupState(pluginParameters, snapshotName)
+		return retrieveBackupState(d.k8sClient, pluginParameters, snapshotName)
 	} else {
 		// if it is destination cluster, then send restore status
-		return d.retrieveRestoreState(pluginParameters, snapshotName)
+		return retrieveRestoreState(d.k8sClient, pluginParameters, snapshotName)
 	}
 }
