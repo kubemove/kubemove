@@ -109,3 +109,15 @@ kubectl apply -f ./examples/resources/es-plugin/engine.yaml --context=kind-src-c
 ```console
 kubectl apply -f ./examples/resources/es-plugin/engine.yaml --context=kind-dst-cluster
 ```
+
+## Run Test Code
+
+```console
+ginkgo  -r -race -v -trace --progress ./cmd/eck-plugin/ \
+        -- \
+        --kubeconfigpath=/home/emruz/.kube/kind-config-kind \
+        --src-context=kind-src-cluster \
+        --dst-context=kind-dst-cluster \
+        --src-plugin=172.17.0.2:30085 \
+        --dst-plugin=172.17.0.3:30324
+```

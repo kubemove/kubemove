@@ -1,10 +1,17 @@
 package main_test
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
 	"testing"
+	"time"
+
+	"github.com/kubemove/kubemove/pkg/plugin/proto"
+	"google.golang.org/grpc"
+
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -13,18 +20,22 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
+	common "github.com/elastic/cloud-on-k8s/pkg/apis/common/v1"
 	eck "github.com/elastic/cloud-on-k8s/pkg/apis/elasticsearch/v1"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	kerr "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
 var (
-	kubeConfigPath string
-	srcContext     string
-	dstContext     string
+	kubeConfigPath   string
+	srcContext       string
+	dstContext       string
+	srcPluginAddress string
+	dstPluginAddress string
 
 	srcKubeClient kubernetes.Interface
 	dstKubeClient kubernetes.Interface
@@ -36,6 +47,8 @@ func TestMain(m *testing.M) {
 	flag.StringVar(&kubeConfigPath, "kubeconfigpath", "", "KubeConfig path")
 	flag.StringVar(&srcContext, "src-context", "", "Source Context")
 	flag.StringVar(&dstContext, "dst-context", "", "Destination Context")
+	flag.StringVar(&srcPluginAddress, "src-plugin", "", "URL of the source plugin")
+	flag.StringVar(&dstPluginAddress, "dst-plugin", "", "URL of the destination plugin")
 	flag.Parse()
 
 	os.Exit(m.Run())
@@ -66,10 +79,6 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = Describe("ECK Plugin Test", func() {
-	const (
-		srcPluginAddress = "localhost:1234"
-		dstPluginAddress = "localhost:5678"
-	)
 
 	Context("Default Nodes", func() {
 		It("should sync Elasticsearch data between clusters", func() {
@@ -78,46 +87,49 @@ var _ = Describe("ECK Plugin Test", func() {
 			err := insertMinioRepository(srcDmClient)
 			Expect(err).NotTo(HaveOccurred())
 
-			//By("Establishing gRPC connection with ECK plugin of source cluster")
-			//srcConn,err:=grpc.Dial(srcPluginAddress,grpc.WithInsecure(),grpc.WithBlock())
-			//Expect(err).NotTo(HaveOccurred())
-			//defer srcConn.Close()
-			//srcClient:=proto.NewDataSyncerClient(srcConn)
-			//
-			//By("Establishing gRPC connection with ECK plugin of destination cluster")
-			//dstConn,err:=grpc.Dial(dstPluginAddress,grpc.WithInsecure(),grpc.WithBlock())
-			//Expect(err).NotTo(HaveOccurred())
-			//defer dstConn.Close()
-			//dstClient:=proto.NewDataSyncerClient(srcConn)
-			//
-			//By("Registering Repository in the source Elasticsearch")
-			//params:=&proto.InitRequest{
-			//	Params: map[string]string{
-			//
-			//	},
-			//}
-			//resp,err:=srcClient.Init(context.Background(),params)
-			//Expect(err).NotTo(HaveOccurred())
-			//fmt.Println(resp.String())
+			By("Installing Minio Repository plugin in the destination ES")
+			err = insertMinioRepository(dstDmClient)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Establishing gRPC connection with ECK plugin of source cluster")
+			srcConn, err := grpc.Dial(srcPluginAddress, grpc.WithInsecure())
+			Expect(err).NotTo(HaveOccurred())
+			defer srcConn.Close()
+			srcClient := proto.NewDataSyncerClient(srcConn)
+
+			By("Establishing gRPC connection with ECK plugin of destination cluster")
+			dstConn, err := grpc.Dial(dstPluginAddress, grpc.WithInsecure())
+			Expect(err).NotTo(HaveOccurred())
+			defer dstConn.Close()
+			dstClient := proto.NewDataSyncerClient(dstConn)
+
+			By("Registering Repository in the source Elasticsearch")
+			params := &proto.InitRequest{
+				Params: map[string]string{
+					"engineName":      "sample-es-move",
+					"engineNamespace": "default",
+				},
+			}
+			resp, err := srcClient.Init(context.Background(), params)
+			Expect(err).NotTo(HaveOccurred())
+			fmt.Println(resp.String())
+
+			By("Registering Repository in the destination Elasticsearch")
+			resp, err = dstClient.Init(context.Background(), params)
+			Expect(err).NotTo(HaveOccurred())
+			fmt.Println(resp.String())
 		})
 	})
 })
 
 func insertMinioRepository(dmClient dynamic.Interface) error {
-	gvk := schema.GroupVersionResource{
+	gvr := schema.GroupVersionResource{
 		Group:    "elasticsearch.k8s.elastic.co",
 		Version:  "v1",
 		Resource: "elasticsearches",
 	}
-	// read Elasticsearch object
-	resp, err := dmClient.Resource(gvk).Namespace("default").Get("sample-es", metav1.GetOptions{})
-	if err != nil {
-		return err
-	}
 
-	// convert to unstructured object into Elasticsearch type
-	var es eck.Elasticsearch
-	err = runtime.DefaultUnstructuredConverter.FromUnstructured(resp.UnstructuredContent(), &es)
+	es, err := getElasticsearch(dmClient, gvr)
 	if err != nil {
 		return err
 	}
@@ -139,8 +151,11 @@ func insertMinioRepository(dmClient dynamic.Interface) error {
 	}
 
 	// insert minio credentiaals
-	es.Spec.SecureS
-	ettings = []eck.
+	es.Spec.SecureSettings = []common.SecretSource{
+		{
+			SecretName: "minio-credentials",
+		},
+	}
 
 	// convert updated Elasticsearch back to unstructured object
 	updatedES, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&es)
@@ -150,6 +165,40 @@ func insertMinioRepository(dmClient dynamic.Interface) error {
 	}
 
 	// update Elasticsearch
-	_, err = dmClient.Resource(gvk).Namespace("default").Update(&unstructured.Unstructured{Object: updatedES}, metav1.UpdateOptions{})
+	_, err = dmClient.Resource(gvr).Namespace("default").Update(&unstructured.Unstructured{Object: updatedES}, metav1.UpdateOptions{})
+	if err != nil {
+		return err
+	}
+
+	// give a delay for the ES phase to be updated
+	time.Sleep(5 * time.Second)
+
+	// wait for ES to be ready with the plugin installer
+	err = wait.PollImmediate(5*time.Second, 5*time.Minute, func() (done bool, err error) {
+		es, err := getElasticsearch(dmClient, gvr)
+		if err == nil {
+			return es.Status.Phase == eck.ElasticsearchReadyPhase, nil
+		}
+		if !kerr.IsNotFound(err) {
+			return true, err
+		}
+		return false, nil
+	})
 	return err
+}
+
+func getElasticsearch(dmClient dynamic.Interface, gvr schema.GroupVersionResource) (*eck.Elasticsearch, error) {
+	// read Elasticsearch object
+	resp, err := dmClient.Resource(gvr).Namespace("default").Get("sample-es", metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	// convert to unstructured object into Elasticsearch type
+	var es eck.Elasticsearch
+	err = runtime.DefaultUnstructuredConverter.FromUnstructured(resp.UnstructuredContent(), &es)
+	if err != nil {
+		return nil, err
+	}
+	return &es, nil
 }

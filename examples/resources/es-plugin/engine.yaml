@@ -7,7 +7,7 @@ spec:
   namespace: ns1
   remoteNamespace: ns2
   syncPeriod: "30 * * * *"
-  plugin: eck-v7
+  plugin: eck-plugin
   selectors:
     matchLabels:
       name: app1
