@@ -64,6 +64,8 @@ func triggerRestore(k8sClient kubernetes.Interface, params PluginParameters, sna
 		Snapshot:   snapshotName,
 	}
 
+	// TODO: close all open indexes
+
 	// request to restore
 	resp, err := restoreRequest.Do(context.Background(), esClient)
 	if err != nil {
