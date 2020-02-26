@@ -33,6 +33,7 @@ func triggerSnapshot(k8sClient kubernetes.Interface, params PluginParameters, sn
 	snapshotRequest := esapi.SnapshotCreateRequest{
 		Repository: params.Repository.Name,
 		Snapshot:   snapshotName,
+		Pretty:     true,
 	}
 
 	// create snapshot
@@ -41,9 +42,9 @@ func triggerSnapshot(k8sClient kubernetes.Interface, params PluginParameters, sn
 		return "", err
 	}
 
-	fmt.Println("Response: ",resp.String())
+	fmt.Println("Response: ", resp.String())
 
-	if resp.StatusCode != http.StatusCreated {
+	if resp.StatusCode != http.StatusOK {
 		defer resp.Body.Close()
 		// TODO: parse response and return failure case
 		return "", fmt.Errorf("failed to create snapshot. Reason: ")
@@ -60,23 +61,30 @@ func triggerRestore(k8sClient kubernetes.Interface, params PluginParameters, sna
 		return "", err
 	}
 
-	// configure snapshot restore request
+	// close all indexes
+	closeRequest := esapi.IndicesCloseRequest{
+		Index:  []string{"_all"},
+		Pretty: true,
+	}
+	closeResp, err := closeRequest.Do(context.Background(), esClient)
+	if err != nil {
+		return "", err
+	}
+	fmt.Println("Close Response: ", closeResp.String())
+
+	// trigger restore
 	restoreRequest := esapi.SnapshotRestoreRequest{
 		Repository: params.Repository.Name,
 		Snapshot:   snapshotName,
+		Pretty:     true,
 	}
-
-	// TODO: close all open indexes
-
-	// request to restore
 	resp, err := restoreRequest.Do(context.Background(), esClient)
 	if err != nil {
 		return "", err
 	}
+	fmt.Println("Restore Response: ", resp.String())
 
-	fmt.Println("Response: ",resp.String())
-
-	if resp.StatusCode != http.StatusAccepted {
+	if resp.StatusCode != http.StatusOK {
 		defer resp.Body.Close()
 		// TODO: parse response and return failure case
 		return "", fmt.Errorf("failed to restore snapshot. Reason: ")

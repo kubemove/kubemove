@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kubemove/kubemove/pkg/plugin/ddm/plugin"
+
 	"github.com/kubemove/kubemove/pkg/plugin/proto"
 	"google.golang.org/grpc"
 
@@ -92,13 +94,13 @@ var _ = Describe("ECK Plugin Test", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Establishing gRPC connection with ECK plugin of source cluster")
-			srcConn, err := grpc.Dial(srcPluginAddress, grpc.WithInsecure(),grpc.WithBlock())
+			srcConn, err := grpc.Dial(srcPluginAddress, grpc.WithInsecure(), grpc.WithBlock())
 			Expect(err).NotTo(HaveOccurred())
 			defer srcConn.Close()
 			srcClient := proto.NewDataSyncerClient(srcConn)
 
 			By("Establishing gRPC connection with ECK plugin of destination cluster")
-			dstConn, err := grpc.Dial(dstPluginAddress, grpc.WithInsecure(),grpc.WithBlock())
+			dstConn, err := grpc.Dial(dstPluginAddress, grpc.WithInsecure(), grpc.WithBlock())
 			Expect(err).NotTo(HaveOccurred())
 			defer dstConn.Close()
 			dstClient := proto.NewDataSyncerClient(dstConn)
@@ -118,7 +120,76 @@ var _ = Describe("ECK Plugin Test", func() {
 			By("Registering Repository in the destination Elasticsearch")
 			initResp, err = dstClient.Init(context.Background(), initParams)
 			Expect(err).NotTo(HaveOccurred())
-			
+
+			snapshotName := fmt.Sprintf("snapshot-%d", time.Now().Unix())
+			syncParams := &proto.SyncRequest{
+				Params: map[string]string{
+					"engineName":      "sample-es-move",
+					"engineNamespace": "default",
+					"snapshotName":    snapshotName,
+				},
+			}
+
+			By("Triggering Backup in the source Elasticsearch")
+			syncResp, err := srcClient.SyncData(context.Background(), syncParams)
+			Expect(err).NotTo(HaveOccurred())
+			fmt.Println("Response: ", syncResp.String())
+
+			statusParams := &proto.SyncStatusRequest{
+				Params: map[string]string{
+					"engineName":      "sample-es-move",
+					"engineNamespace": "default",
+					"snapshotName":    snapshotName,
+				},
+			}
+
+			By("Waiting for Snapshot to be completed")
+			err = wait.PollImmediate(2*time.Second, 5*time.Minute, func() (done bool, err error) {
+				statusResp, err := srcClient.SyncStatus(context.Background(), statusParams)
+				if statusResp == nil {
+					return true, err
+				}
+				fmt.Println("Status: ",statusResp.Status)
+				switch statusResp.Status {
+				case plugin.Completed:
+					return true, nil // snapshot completed successfully. we are done.
+				case plugin.InProgress:
+					return false, nil // snapshot is running. so, retry.
+				default:
+					return true, err // snapshot completed with failure. so, no need to retry.
+				}
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Triggering Restore in the destination Elasticsearch")
+			syncResp, err = dstClient.SyncData(context.Background(), syncParams)
+			Expect(err).NotTo(HaveOccurred())
+			fmt.Println("Response: ", syncResp.String())
+
+			By("Waiting for Restore to be completed")
+			cnt:=0
+			err = wait.PollImmediate(500*time.Millisecond, 5*time.Minute, func() (done bool, err error) {
+				statusResp, err := dstClient.SyncStatus(context.Background(), statusParams)
+				if statusResp == nil {
+					return true, err
+				}
+				fmt.Println("Status: ",statusResp.Status)
+				if cnt==10{
+					return true,nil
+				}else{
+					cnt++
+					return false,nil
+				}
+				switch statusResp.Status {
+				case plugin.Completed:
+					return true, nil // restore completed successfully. we are done.
+				case plugin.InProgress:
+					return false, nil // restore is running. so, retry.
+				default:
+					return true, err // restore completed with failure. so, no need to retry.
+				}
+			})
+			Expect(err).NotTo(HaveOccurred())
 		})
 	})
 })

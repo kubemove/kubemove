@@ -20,4 +20,6 @@ const (
 	Invalid
 	Canceled
 	Errored
+	Failed
+	Unknown
 )

@@ -81,7 +81,7 @@ func main() {
 }
 
 func (d *eckDDM) Init(params map[string]string) error {
-	fmt.Println("Handling INIT request..................")
+	fmt.Println("\n\nHandling INIT request..................")
 	// extract the plugin parameters from the respective MoveEngine
 	pluginParameters, mode, err := extractPluginParameters(d.dmClient, params)
 	if err != nil {
@@ -93,7 +93,7 @@ func (d *eckDDM) Init(params map[string]string) error {
 }
 
 func (d *eckDDM) Sync(params map[string]string, vol []*client.Volume) (string, error) {
-	fmt.Println("Handling STATUS request..................")
+	fmt.Println("\n\nHandling SYNC request..................")
 	// extract the plugin parameters from the respective MoveEngine
 	pluginParameters, mode, err := extractPluginParameters(d.dmClient, params)
 	if err != nil {
@@ -117,7 +117,7 @@ func (d *eckDDM) Sync(params map[string]string, vol []*client.Volume) (string, e
 }
 
 func (d *eckDDM) Status(params map[string]string) (int32, error) {
-	fmt.Println("Handling STATUS request..................")
+	fmt.Println("\n\nHandling STATUS request..................")
 	// extract the plugin parameters from the respective MoveEngine
 	pluginParameters, mode, err := extractPluginParameters(d.dmClient, params)
 	if err != nil {

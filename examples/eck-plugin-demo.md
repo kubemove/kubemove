@@ -121,3 +121,18 @@ ginkgo  -r -race -v -trace --progress ./cmd/eck-plugin/ \
         --src-plugin=172.17.0.2:30085 \
         --dst-plugin=172.17.0.3:30324
 ```
+
+- Insert Random Data:
+
+```console
+pip install tornado
+```
+
+```console
+python ./examples/resources/es-plugin/es_test_data.py \
+    --es_url=https://localhost:9200 \
+    --username=elastic \
+    --password=qx46p9gxcl5lqrs5cl9g6b94 \
+    --count=1000 \
+    --validate_cert=False
+```

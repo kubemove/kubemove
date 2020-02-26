@@ -65,6 +65,7 @@ func registerSnapshotRepository(k8sClient kubernetes.Interface, params PluginPar
 	repoRequest := esapi.SnapshotCreateRepositoryRequest{
 		Repository:    params.Repository.Name,
 		Body:          bytes.NewReader(jsonBody),
+		Pretty: true,
 	}
 
 	fmt.Println("Registering repository..................")
