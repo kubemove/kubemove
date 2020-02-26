@@ -20,7 +20,7 @@ import (
 func newElasticsearchClient(k8sClient kubernetes.Interface, opt ElasticsearchOptions) (*es.Client, error) {
 	// configure client
 	cfg := es.Config{
-		Addresses: []string{fmt.Sprintf("%s://%s", opt.Scheme, opt.ServiceName)},
+		Addresses: []string{fmt.Sprintf("%s://%s:%d", opt.Scheme, opt.ServiceName, opt.Port)},
 	}
 
 	// configure authentication
@@ -31,6 +31,12 @@ func newElasticsearchClient(k8sClient kubernetes.Interface, opt ElasticsearchOpt
 
 	if opt.Scheme == "https" {
 		err = configureTLS(k8sClient, &cfg, opt)
+	} else {
+		cfg.Transport = &http.Transport{
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: true,
+			},
+		}
 	}
 
 	return es.NewClient(cfg)

@@ -41,6 +41,8 @@ func triggerSnapshot(k8sClient kubernetes.Interface, params PluginParameters, sn
 		return "", err
 	}
 
+	fmt.Println("Response: ",resp.String())
+
 	if resp.StatusCode != http.StatusCreated {
 		defer resp.Body.Close()
 		// TODO: parse response and return failure case
@@ -71,6 +73,8 @@ func triggerRestore(k8sClient kubernetes.Interface, params PluginParameters, sna
 	if err != nil {
 		return "", err
 	}
+
+	fmt.Println("Response: ",resp.String())
 
 	if resp.StatusCode != http.StatusAccepted {
 		defer resp.Body.Close()

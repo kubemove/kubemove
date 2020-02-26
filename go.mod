@@ -4,6 +4,7 @@ go 1.13
 
 require (
 	cloud.google.com/go v0.39.0 // indirect
+	github.com/appscode/go v0.0.0-20200225060711-86360b91102a
 	github.com/coreos/prometheus-operator v0.29.0 // indirect
 	github.com/elastic/cloud-on-k8s v0.0.0-20200225093456-57e96b20f060
 	github.com/elastic/go-elasticsearch/v7 v7.5.0

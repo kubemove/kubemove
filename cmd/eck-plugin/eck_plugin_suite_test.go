@@ -92,32 +92,33 @@ var _ = Describe("ECK Plugin Test", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Establishing gRPC connection with ECK plugin of source cluster")
-			srcConn, err := grpc.Dial(srcPluginAddress, grpc.WithInsecure())
+			srcConn, err := grpc.Dial(srcPluginAddress, grpc.WithInsecure(),grpc.WithBlock())
 			Expect(err).NotTo(HaveOccurred())
 			defer srcConn.Close()
 			srcClient := proto.NewDataSyncerClient(srcConn)
 
 			By("Establishing gRPC connection with ECK plugin of destination cluster")
-			dstConn, err := grpc.Dial(dstPluginAddress, grpc.WithInsecure())
+			dstConn, err := grpc.Dial(dstPluginAddress, grpc.WithInsecure(),grpc.WithBlock())
 			Expect(err).NotTo(HaveOccurred())
 			defer dstConn.Close()
 			dstClient := proto.NewDataSyncerClient(dstConn)
 
-			By("Registering Repository in the source Elasticsearch")
-			params := &proto.InitRequest{
+			initParams := &proto.InitRequest{
 				Params: map[string]string{
 					"engineName":      "sample-es-move",
 					"engineNamespace": "default",
 				},
 			}
-			resp, err := srcClient.Init(context.Background(), params)
+
+			By("Registering Repository in the source Elasticsearch")
+			initResp, err := srcClient.Init(context.Background(), initParams)
 			Expect(err).NotTo(HaveOccurred())
-			fmt.Println(resp.String())
+			fmt.Println(initResp.String())
 
 			By("Registering Repository in the destination Elasticsearch")
-			resp, err = dstClient.Init(context.Background(), params)
+			initResp, err = dstClient.Init(context.Background(), initParams)
 			Expect(err).NotTo(HaveOccurred())
-			fmt.Println(resp.String())
+			
 		})
 	})
 })

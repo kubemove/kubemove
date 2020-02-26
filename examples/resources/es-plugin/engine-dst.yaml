@@ -12,18 +12,19 @@ spec:
     matchLabels:
       name: app1
   includeResources: false
-  mode: active
+  mode: standby
   pluginParameters:
     repository:
-      name: my_repo
+      name: minio_repo
       type: s3
       bucket: demo
-      prefix: /es/backup
+      prefix: es/backup
       endpoint: 172.17.0.3:32559
       scheme: http
       credentials: minio-credentials
     elasticsearch:
-      serviceName: sample-es
+      serviceName: sample-es-es-http
+      port: 9200
       namespace: default
       scheme: https
       authSecret: sample-es-es-elastic-user

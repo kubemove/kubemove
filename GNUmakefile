@@ -147,9 +147,9 @@ plugin-image: $(BUILD_DIRS) plugin
 	@echo "Pushing $(PLUGIN_NAME) image...."
 	@docker push $(PLUGIN_IMAGE)
 
-.PHONY: test-plugin
-test-plugin:
-@go test
+#.PHONY: test-plugin
+#test-plugin:
+#@go test
 
 .PHONY: gen
 gen: gen-crds gen-k8s gen-grpc

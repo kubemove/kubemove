@@ -5,9 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
-
 	"k8s.io/client-go/kubernetes"
+	"net/http"
 
 	"github.com/elastic/go-elasticsearch/v7/esapi"
 )
@@ -40,6 +39,9 @@ func registerSnapshotRepository(k8sClient kubernetes.Interface, params PluginPar
 	// configure request body
 	body := RepoCreateRequestBody{
 		Type: params.Repository.Type,
+		Settings: RepositorySettings{
+			Bucket: params.Repository.Bucket,
+		},
 	}
 	if params.Repository.Prefix != "" {
 		body.Settings.BasePath = params.Repository.Prefix
@@ -61,18 +63,22 @@ func registerSnapshotRepository(k8sClient kubernetes.Interface, params PluginPar
 
 	// configure snapshot repository create request
 	repoRequest := esapi.SnapshotCreateRepositoryRequest{
-		Repository: params.Repository.Name,
-		Body:       bytes.NewReader(jsonBody),
+		Repository:    params.Repository.Name,
+		Body:          bytes.NewReader(jsonBody),
 	}
 
+	fmt.Println("Registering repository..................")
 	// register repository
 	resp, err := repoRequest.Do(context.Background(), esClient)
 	if err != nil {
+		fmt.Println(err.Error())
 		return err
 	}
+	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusAccepted {
-		defer resp.Body.Close()
+	fmt.Println("Response: ", resp.String())
+
+	if resp.StatusCode != http.StatusOK {
 		// TODO: parse the response body and identify the failure cause
 		return fmt.Errorf("failed to register Snapshot Repository to the Elasticsearch. Reason: ")
 	}
