@@ -149,14 +149,14 @@ var _ = Describe("ECK Plugin Test", func() {
 				if statusResp == nil {
 					return true, err
 				}
-				fmt.Println("Status: ",statusResp.Status)
+				fmt.Println("Status: ", statusResp.Status)
 				switch statusResp.Status {
 				case plugin.Completed:
 					return true, nil // snapshot completed successfully. we are done.
 				case plugin.InProgress:
 					return false, nil // snapshot is running. so, retry.
 				default:
-					return true, err // snapshot completed with failure. so, no need to retry.
+					return true, err // snapshot process has encountered a failure. so, no need to retry.
 				}
 			})
 			Expect(err).NotTo(HaveOccurred())
@@ -167,26 +167,19 @@ var _ = Describe("ECK Plugin Test", func() {
 			fmt.Println("Response: ", syncResp.String())
 
 			By("Waiting for Restore to be completed")
-			cnt:=0
-			err = wait.PollImmediate(500*time.Millisecond, 5*time.Minute, func() (done bool, err error) {
+			err = wait.PollImmediate(2*time.Second, 5*time.Minute, func() (done bool, err error) {
 				statusResp, err := dstClient.SyncStatus(context.Background(), statusParams)
 				if statusResp == nil {
 					return true, err
 				}
-				fmt.Println("Status: ",statusResp.Status)
-				if cnt==10{
-					return true,nil
-				}else{
-					cnt++
-					return false,nil
-				}
+				fmt.Println("Status: ", statusResp.Status)
 				switch statusResp.Status {
 				case plugin.Completed:
 					return true, nil // restore completed successfully. we are done.
 				case plugin.InProgress:
 					return false, nil // restore is running. so, retry.
 				default:
-					return true, err // restore completed with failure. so, no need to retry.
+					return true, err // restore process has encountered a failure. so, no need to retry.
 				}
 			})
 			Expect(err).NotTo(HaveOccurred())

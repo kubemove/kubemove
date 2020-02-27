@@ -10,17 +10,6 @@ import (
 	"github.com/elastic/go-elasticsearch/v7/esapi"
 )
 
-type SyncPhase string
-type StatusType string
-
-const (
-	SyncPhaseBackup  SyncPhase = "backup"
-	SyncPhaseRestore SyncPhase = "restore"
-
-	BackupStatus  StatusType = "backup-status"
-	RestoreStatus StatusType = "restore-status"
-)
-
 // triggerSnapshot hits the Snapshot API of Elasticsearch to trigger a snapshot
 func triggerSnapshot(k8sClient kubernetes.Interface, params PluginParameters, snapshotName string) (string, error) {
 	// crate an Elasticsearch client
@@ -41,13 +30,13 @@ func triggerSnapshot(k8sClient kubernetes.Interface, params PluginParameters, sn
 	if err != nil {
 		return "", err
 	}
+	defer resp.Body.Close()
 
 	fmt.Println("Response: ", resp.String())
 
 	if resp.StatusCode != http.StatusOK {
-		defer resp.Body.Close()
 		// TODO: parse response and return failure case
-		return "", fmt.Errorf("failed to create snapshot. Reason: ")
+		return "", fmt.Errorf("failed to create snapshot. Reason: <TO DO>")
 	}
 
 	return "", nil
@@ -62,6 +51,7 @@ func triggerRestore(k8sClient kubernetes.Interface, params PluginParameters, sna
 	}
 
 	// close all indexes
+	fmt.Println("Requesting to close all indexes........")
 	closeRequest := esapi.IndicesCloseRequest{
 		Index:  []string{"_all"},
 		Pretty: true,
@@ -70,9 +60,12 @@ func triggerRestore(k8sClient kubernetes.Interface, params PluginParameters, sna
 	if err != nil {
 		return "", err
 	}
-	fmt.Println("Close Response: ", closeResp.String())
+	defer closeResp.Body.Close()
+
+	fmt.Println("Response: ", closeResp.String())
 
 	// trigger restore
+	fmt.Println("Requesting to restore........")
 	restoreRequest := esapi.SnapshotRestoreRequest{
 		Repository: params.Repository.Name,
 		Snapshot:   snapshotName,
@@ -82,12 +75,13 @@ func triggerRestore(k8sClient kubernetes.Interface, params PluginParameters, sna
 	if err != nil {
 		return "", err
 	}
-	fmt.Println("Restore Response: ", resp.String())
+	defer resp.Body.Close()
+
+	fmt.Println("Response: ", resp.String())
 
 	if resp.StatusCode != http.StatusOK {
-		defer resp.Body.Close()
 		// TODO: parse response and return failure case
-		return "", fmt.Errorf("failed to restore snapshot. Reason: ")
+		return "", fmt.Errorf("failed to restore snapshot. Reason: <TO DO>")
 	}
 
 	return "", nil

@@ -69,7 +69,7 @@ func main() {
 		utilruntime.Must(err)
 	}
 
-	err = client.Register(rand.WithUniqSuffix("eck-plugin"),
+	err = client.Register(rand.WithUniqSuffix("eck-plugin"), //TODO: Use stable name. Need fix in the server side.
 		&eckDDM{
 			log:       log,
 			k8sClient: kubernetes.NewForConfigOrDie(config),
@@ -81,7 +81,7 @@ func main() {
 }
 
 func (d *eckDDM) Init(params map[string]string) error {
-	fmt.Println("\n\nHandling INIT request..................")
+	fmt.Println("\nHandling INIT request..................")
 	// extract the plugin parameters from the respective MoveEngine
 	pluginParameters, mode, err := extractPluginParameters(d.dmClient, params)
 	if err != nil {
@@ -93,7 +93,7 @@ func (d *eckDDM) Init(params map[string]string) error {
 }
 
 func (d *eckDDM) Sync(params map[string]string, vol []*client.Volume) (string, error) {
-	fmt.Println("\n\nHandling SYNC request..................")
+	fmt.Println("\nHandling SYNC request..................")
 	// extract the plugin parameters from the respective MoveEngine
 	pluginParameters, mode, err := extractPluginParameters(d.dmClient, params)
 	if err != nil {
@@ -107,17 +107,17 @@ func (d *eckDDM) Sync(params map[string]string, vol []*client.Volume) (string, e
 
 	// if it is source cluster, then trigger a snapshot
 	if mode == EngineModeActive {
-		fmt.Println("Triggering Snapshot: ",snapshotName)
+		fmt.Println("Triggering Snapshot: ", snapshotName)
 		return triggerSnapshot(d.k8sClient, pluginParameters, snapshotName)
 	} else {
-		fmt.Println("Triggering Restore from Snapshot: ",snapshotName)
+		fmt.Println("Triggering Restore from Snapshot: ", snapshotName)
 		// if it is destination cluster, then trigger a restore
 		return triggerRestore(d.k8sClient, pluginParameters, snapshotName)
 	}
 }
 
 func (d *eckDDM) Status(params map[string]string) (int32, error) {
-	fmt.Println("\n\nHandling STATUS request..................")
+	fmt.Println("\nHandling STATUS request..................")
 	// extract the plugin parameters from the respective MoveEngine
 	pluginParameters, mode, err := extractPluginParameters(d.dmClient, params)
 	if err != nil {
@@ -131,10 +131,8 @@ func (d *eckDDM) Status(params map[string]string) (int32, error) {
 
 	// if it is active cluster, then send the backup state
 	if mode == EngineModeActive {
-		fmt.Println("Checking Backup Status........")
 		return retrieveBackupState(d.k8sClient, pluginParameters, snapshotName)
 	} else {
-		fmt.Println("Checking Restore Status........")
 		// if it is destination cluster, then send restore status
 		return retrieveRestoreState(d.k8sClient, pluginParameters, snapshotName)
 	}

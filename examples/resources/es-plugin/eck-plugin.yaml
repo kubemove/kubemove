@@ -53,7 +53,7 @@ spec:
       containers:
       - name: eck-plugin
         # Replace this with the built image name
-        image: emruzhossain/eck-plugin:es-plugin-3351e63b
+        image: emruzhossain/eck-plugin:es-plugin-51f41e9e
         imagePullPolicy: Always
         env:
         - name: WATCH_NAMESPACE
