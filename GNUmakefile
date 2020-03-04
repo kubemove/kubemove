@@ -112,45 +112,6 @@ base-image:
 	@echo "Building base docker image for kubemove"
 	@docker build -t $(BASE_ENGINE_IMG):$(BASE_ENGINE_TAG) -f build/Dockerfile-base ./build
 
-PLUGIN_NAME?=dummy_plugin
-PLUGIN_IMAGE:=$(DOCKER_REGISTRY)/$(PLUGIN_NAME):$(IMAGE_TAG)
-
-.PHONY: plugin
-plugin: $(BUILD_DIRS)
-	@echo "Building $(PLUGIN_NAME)...."
-	@rm -rf _output/bin/$(PLUGIN_NAME)
-	@docker run                                                     \
-			-i                                                      \
-			--rm                                                    \
-			-u $$(id -u):$$(id -g)                                  \
-			-v $$(pwd):/src                                         \
-			-v $$(pwd)/.go/cache:/.cache                            \
-			-w /src                                                 \
-			--env HTTP_PROXY=$(HTTP_PROXY)                          \
-			--env HTTPS_PROXY=$(HTTPS_PROXY)                        \
-			--env GOFLAGS="-mod=vendor"                             \
-			$(BUILD_IMAGE)                                          \
-			/bin/bash -c "go build -o $(BIN_DIR)/$(PLUGIN_NAME) ./cmd/$(PLUGIN_NAME)/"
-
-	@echo "Successfully built $(PLUGIN_NAME)"
-
-.PHONY: plugin-image
-plugin-image: $(BUILD_DIRS) plugin
-	@echo ""
-	@echo "Building $(PLUGIN_NAME) image....."
-	@ls -R $(BIN_DIR)
-	@docker build -t $(PLUGIN_IMAGE) -f build/$(PLUGIN_NAME).Dockerfile ./build --no-cache \
-			--build-arg BIN_DIR=$(BIN_DIR)                                                 \
-			--build-arg PLUGIN_NAME=$(PLUGIN_NAME)
-	@echo "Successfully built $(PLUGIN_NAME) image"
-	@echo ""
-	@echo "Pushing $(PLUGIN_NAME) image...."
-	@docker push $(PLUGIN_IMAGE)
-
-#.PHONY: test-plugin
-#test-plugin:
-#@go test
-
 .PHONY: gen
 gen: gen-crds gen-k8s gen-grpc
 
@@ -169,24 +130,6 @@ gen-grpc:
 			$(BUILD_IMAGE)                                          \
 			/bin/bash -c "protoc --go_out=plugins=grpc:. pkg/plugin/proto/*.proto"
 	@echo "Successfully generated gRPC codes"
-
-.PHONY: gen-k8s
-gen-k8s: $(BUILD_DIRS)
-	@echo ""
-	@echo "Generating deepcopy using operator sdk...."
-	@docker run                                                     \
-			-i                                                      \
-			--rm                                                    \
-			-u $$(id -u):$$(id -g)                                  \
-			-v $$(pwd):/src                                         \
-			-v $$(pwd)/.go/cache:/.cache                            \
-			-w /src                                                 \
-			--env HTTP_PROXY=$(HTTP_PROXY)                          \
-			--env HTTPS_PROXY=$(HTTPS_PROXY)                        \
-			--env GOROOT=/usr/local/go                              \
-			$(BUILD_IMAGE)                                          \
-			/bin/bash -c "operator-sdk generate k8s"
-	@echo "Successfully generated deepcopy codes"
 
 .PHONY: gen-crds
 gen-crds: $(BUILD_DIRS)
