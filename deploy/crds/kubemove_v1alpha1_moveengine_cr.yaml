@@ -1,7 +1,0 @@
-apiVersion: kubemove.io/v1alpha1
-kind: MoveEngine
-metadata:
-  name: example-moveengine
-spec:
-  # Add fields here
-  size: 3

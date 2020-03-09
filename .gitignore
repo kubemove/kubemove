@@ -5,3 +5,5 @@ nohup.out
 build/bin
 build/_output
 _output/
+.idea/
+.go/

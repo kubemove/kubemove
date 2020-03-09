@@ -101,11 +101,11 @@ func (m *MoveEngineAction) ListResourcesFromAPI(api metav1.APIResource) (*unstru
 
 	err := m.client.List(
 		context.TODO(),
+		list,
 		&client.ListOptions{
 			Namespace:     ns,
 			LabelSelector: m.selector,
-		},
-		list)
+		})
 	return list, err
 
 }

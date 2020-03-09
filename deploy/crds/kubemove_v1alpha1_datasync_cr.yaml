@@ -1,7 +1,0 @@
-apiVersion: kubemove.io/v1alpha1
-kind: DataSync
-metadata:
-  name: example-datasync
-spec:
-  # Add fields here
-  size: 3

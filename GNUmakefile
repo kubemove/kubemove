@@ -1,4 +1,4 @@
-all: datasync engine pair dummy_plugin
+SHELL=/bin/bash -o pipefail
 
 PACKAGES = $(shell go list ./... | grep -v 'vendor')
 
@@ -8,16 +8,40 @@ PAIR_IMG?=$(HUB_USER)/move-pair
 DS_IMG?=$(HUB_USER)/move-ds
 PLUGIN_IMG?=$(HUB_USER)/move-plugin
 
-IMG_TAG=ci
+IMG_TAG?=ci
 
 BASE_ENGINE_IMG?=$(HUB_USER)/move-base
 BASE_ENGINE_TAG=ci
 
-BUILD_DIR=build/_output
+REGISTRY?=kubemovedev
+REPO_ROOT:=$(shell pwd)
+MODULE=github.com/kubemove/kubemove
 
-format:
-	@echo "--> Running go fmt"
-	@go fmt $(PACKAGES)
+GO_VERSION?=1.13.8
+GO_PROTO_VERSION?=v1.3.3
+OPERATOR_SDK_VERSION?=v0.12.0
+
+BUILD_IMAGE      ?= $(REGISTRY)/kubemove-dev:$(GO_VERSION)
+
+# directories required to build the project
+BUILD_DIRS:= build/_output \
+			.go/cache
+# directory where the go build output will go
+BIN_DIR:=build/_output/bin
+
+# Use IMAGE_TAG to <branch-name>-<commit-hash> to make sure that
+# one dev don't overwrite another's image in the docker registry
+git_branch       := $(shell git rev-parse --abbrev-ref HEAD)
+git_tag          := $(shell git describe --exact-match --abbrev=0 2>/dev/null || echo "")
+commit_hash      := $(shell git rev-parse --verify --short HEAD)
+
+ifdef git_tag
+	IMAGE_TAG = $(git_tag)
+else
+	IMAGE_TAG = $(git_branch)-$(commit_hash)
+endif
+
+all: datasync engine pair dummy_plugin
 
 vet:
 	go vet ${PACKAGES}
@@ -26,38 +50,40 @@ golint:
 	@gometalinter --install
 	@gometalinter --vendor --disable-all -E errcheck -E misspell ./...
 
-build_dir:
-	@mkdir -p ${BUILD_DIR}/bin
+$(BUILD_DIRS):
+	@mkdir -p $@
 
-kubemove-cli: build_dir
+kubemove-cli: $(BUILD_DIRS)
 	@echo "Building kubemove-cli"
 	@rm -rf _output/bin/kubemove
-	@go build -o ${BUILD_DIR}/bin/kubemove cmd/kubemove/main.go
+	@go build -o $(BIN_DIR)/kubemove cmd/kubemove/main.go
 	@echo "Done"
 
-datasync: build_dir
+datasync: $(BUILD_DIRS)
 	@echo "Building kubemove-datasync"
 	@rm -rf _output/bin/datasync
-	@go build -o ${BUILD_DIR}/bin/datasync cmd/datasync/main.go
+	@go build -o $(BIN_DIR)/datasync cmd/datasync/main.go
 	@echo "Done"
 
-engine: build_dir
+engine: $(BUILD_DIRS)
 	@echo "Building kubemove-engine"
 	@rm -rf _output/bin/kengine
-	@go build -o ${BUILD_DIR}/bin/kengine cmd/engine/main.go
+	@go build -o $(BIN_DIR)/kengine cmd/engine/main.go
 	@echo "Done"
 
-pair: build_dir
+pair: $(BUILD_DIRS)
 	@echo "Building kubemove-pair"
 	@rm -rf _output/bin/kpair
-	@go build -o ${BUILD_DIR}/bin/kpair cmd/pair/main.go
+	@go build -o $(BIN_DIR)/kpair cmd/pair/main.go
 	@echo "Done"
 
-dummy_plugin: build_dir
+dummy_plugin: $(BUILD_DIRS)
 	@echo "Building dummy plugin"
 	@rm -rf _output/bin/dummy_plugin
-	@go build -o ${BUILD_DIR}/bin/dummy_plugin cmd/dummy_plugin/dummy_plugin.go
+	@go build -o $(BIN_DIR)/dummy_plugin cmd/dummy_plugin/main.go
 	@echo "Done"
+
+build: datasync engine pair dummy_plugin
 
 clean:
 	@echo "Removing old binaries"
@@ -84,3 +110,136 @@ dummy_plugin-image: dummy_plugin
 base-image:
 	@echo "Building base docker image for kubemove"
 	@docker build -t $(BASE_ENGINE_IMG):$(BASE_ENGINE_TAG) -f build/Dockerfile-base ./build
+
+.PHONY: gen
+gen: gen-crds gen-k8s gen-grpc
+
+.PHONY: gen-grpc
+gen-grpc:
+	@echo ""
+	@echo "Generating gRPC server and client from .proto file...."
+	@docker run                                                     \
+			-i                                                      \
+			--rm                                                    \
+			-u $$(id -u):$$(id -g)                                  \
+			-v $$(pwd):/src                                         \
+			-w /src                                                 \
+			--env HTTP_PROXY=$(HTTP_PROXY)                          \
+			--env HTTPS_PROXY=$(HTTPS_PROXY)                        \
+			$(BUILD_IMAGE)                                          \
+			/bin/bash -c "protoc --go_out=plugins=grpc:. pkg/plugin/proto/*.proto"
+	@echo "Successfully generated gRPC codes"
+
+.PHONY: gen-crds
+gen-crds: $(BUILD_DIRS)
+	@echo ""
+	@echo "Generating crds using operator sdk...."
+	@docker run                                                     \
+			-i                                                      \
+			--rm                                                    \
+			-u $$(id -u):$$(id -g)                                  \
+			-v $$(pwd):/src                                         \
+			-v $$(pwd)/.go/cache:/.cache                            \
+			-w /src                                                 \
+			--env HTTP_PROXY=$(HTTP_PROXY)                          \
+			--env HTTPS_PROXY=$(HTTPS_PROXY)                        \
+			$(BUILD_IMAGE)                                          \
+			/bin/bash -c "operator-sdk generate openapi"
+	@echo "Successfully generated crds"
+
+.PHONY: gen-k8s
+gen-k8s: $(BUILD_DIRS)
+	@echo ""
+	@echo "Running operator-sdk generate k8s ...."
+	@docker run                                                     \
+			-i                                                      \
+			--rm                                                    \
+			-u $$(id -u):$$(id -g)                                  \
+			-v $$(pwd):/src                                         \
+			-v $$(pwd)/.go/cache:/.cache                            \
+			-w /src                                                 \
+			--env HTTP_PROXY=$(HTTP_PROXY)                          \
+			--env HTTPS_PROXY=$(HTTPS_PROXY)                        \
+			$(BUILD_IMAGE)                                          \
+			/bin/bash -c "operator-sdk generate k8s"
+	@echo "Done"
+
+
+# Run gofmt and goimports in all packages except vendor
+# Example: make format REGISTRY=<your docker registry>
+.PHONY: format
+format: $(BUILD_DIRS)
+	@echo "Formatting repo...."
+	@docker run                                                     			\
+			-i                                                      			\
+			--rm                                                    			\
+			-u $$(id -u):$$(id -g)                                  			\
+			-v $$(pwd):/go/src/$(MODULE)                            			\
+			-v $$(pwd)/.go/cache:/.cache                            			\
+			-w /go/src                                              			\
+			--env HTTP_PROXY=$(HTTP_PROXY)                          			\
+			--env HTTPS_PROXY=$(HTTPS_PROXY)                        			\
+			--env GO111MODULE=on                                    			\
+			--env GOFLAGS="-mod=vendor"                             			\
+			$(BUILD_IMAGE)                                          			\
+			/bin/sh -c "gofmt -s -w $(PACKAGES)	&& goimports -w $(PACKAGES)"
+	@echo "Done"
+
+# Run linter
+# Example: make lint REGISTRY=<your docker registry>
+ADDITIONAL_LINTERS   := goconst,gofmt,goimports,unparam
+.PHONY: lint
+lint: $(BUILD_DIRS)
+	@echo "Running go lint....."
+	@docker run                                                     \
+			-i                                                      \
+			--rm                                                    \
+			-u $$(id -u):$$(id -g)                                  \
+			-v $$(pwd):/go/src/$(MODULE)                            \
+			-v $$(pwd)/.go/cache:/.cache                            \
+			-w /go/src/$(MODULE)                                    \
+			--env HTTP_PROXY=$(HTTP_PROXY)                          \
+			--env HTTPS_PROXY=$(HTTPS_PROXY)                        \
+			--env GO111MODULE=on                                    \
+			--env GOFLAGS="-mod=vendor"                             \
+			$(BUILD_IMAGE)                                          \
+			golangci-lint run                                       \
+			--enable $(ADDITIONAL_LINTERS)                          \
+			--timeout=10m                                           \
+			--skip-dirs-use-default                                 \
+			--skip-dirs=vendor										\
+			--skip-files="zz_generated.*\.go$\"
+	@echo "Done"
+
+# Update the dependencies
+# Example: make revendor
+.PHONY: revendor
+revendor:
+	@echo "Revendoring project....."
+	@docker run                                                     \
+			-i                                                      \
+			--rm                                                    \
+			-u $$(id -u):$$(id -g)                                  \
+			-v $$(pwd):/go/src/$(MODULE)                            \
+			-v $$(pwd)/.go/cache:/.cache                            \
+			-w /go/src/$(MODULE)                                    \
+			--env HTTP_PROXY=$(HTTP_PROXY)                          \
+			--env HTTPS_PROXY=$(HTTPS_PROXY)                        \
+			--env GO111MODULE=on                                    \
+			--env GOFLAGS="-mod=vendor"                             \
+			$(BUILD_IMAGE)                                          \
+			/bin/sh -c "go mod vendor && go mod tidy"
+	@echo "Done"
+
+
+.PHONY: dev-image
+dev-image:
+	@echo "Building developer image...."
+	@docker build -t $(BUILD_IMAGE) -f build/dev.Dockerfile ./build --no-cache \
+			--build-arg GO_VERSION=$(GO_VERSION)                                   \
+			--build-arg GO_PROTO_VERSION=$(GO_PROTO_VERSION)                       \
+			--build-arg OPERATOR_SDK_VERSION=$(OPERATOR_SDK_VERSION)
+	@echo "Successfully built developer image"
+	@echo ""
+	@echo "Pushing developer image...."
+	@docker push $(BUILD_IMAGE)

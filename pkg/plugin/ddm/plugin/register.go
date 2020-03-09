@@ -24,42 +24,18 @@ func Register(pluginName string, iface Plugin) error {
 }
 
 func (s *server) Init(ctx context.Context, req *pb.InitRequest) (*pb.InitResponse, error) {
-	err := s.client.Init(req.Config)
+	err := s.client.Init(req.Params)
 	if err != nil {
 		//TODO
 		return nil, err
 	}
 
-	return &pb.InitResponse{
-		Status: 0,
-	}, nil
-}
-
-func getSyncVolList(vol map[string]*pb.SyncRequest_SyncVolRequest) []*Volume {
-	var volList []*Volume
-
-	for _, v := range vol {
-		sVol := &Volume{
-			VolumeName:        v.VolumeName,
-			VolumeClaim:       v.VolumeClaim,
-			RemoteVolumeClaim: v.RemoteVolumeClaim,
-			LocalNS:           v.LocalNS,
-			RemoteNS:          v.RemoteNS,
-		}
-		volList = append(volList, sVol)
-	}
-
-	return volList
+	return &pb.InitResponse{}, nil
 }
 
 func (s *server) SyncData(ctx context.Context, req *pb.SyncRequest) (*pb.SyncResponse, error) {
-	volList := getSyncVolList(req.VolumeList)
-	id, err := s.client.Sync(
-		req.Engine,
-		req.Restore,
-		req.Params,
-		volList,
-	)
+	id, err := s.client.Sync(req.Params)
+
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +46,7 @@ func (s *server) SyncData(ctx context.Context, req *pb.SyncRequest) (*pb.SyncRes
 }
 
 func (s *server) SyncStatus(ctx context.Context, req *pb.SyncStatusRequest) (*pb.SyncStatusResponse, error) {
-	status, err := s.client.Status(req.SyncID)
+	status, err := s.client.Status(req.Params)
 	if err != nil {
 		return nil, err
 	}

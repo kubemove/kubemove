@@ -2,10 +2,17 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
+
+const (
+	ResourceKindMoveEngine = "MoveEngine"
+	ResourceSingularMoveEngine = "moveengine"
+	ResourcePluralMoveEngine = "moveengines"
+)
 
 // MoveEngineSpec defines the desired state of MoveEngine
 // +k8s:openapi-gen=true
@@ -16,11 +23,11 @@ type MoveEngineSpec struct {
 	MovePair         string                `json:"movePair"`
 	Namespace        string                `json:"namespace"`
 	RemoteNamespace  string                `json:"remoteNamespace"`
-	Selectors        *metav1.LabelSelector `json:"selectors"`
 	SyncPeriod       string                `json:"syncPeriod"`
 	Mode             string                `json:"mode"`
 	PluginProvider   string                `json:"plugin"`
 	IncludeResources bool                  `json:"includeResources"`
+	PluginParameters *runtime.RawExtension `json:"pluginParameters,omitempty"`
 }
 
 // MoveEngineStatus defines the observed state of MoveEngine
@@ -35,8 +42,6 @@ type MoveEngineStatus struct {
 	LastSyncedTime metav1.Time       `json:"LastSyncedTime"`
 	DataSync       string            `json:"DataSync"`
 	DataSyncStatus string            `json:"DataSyncStatus"`
-	Volumes        []*VolumeStatus   `json:"Volumes"`
-	Resources      []*ResourceStatus `json:"Resources"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
