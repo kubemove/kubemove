@@ -32,9 +32,8 @@ func (d *dummyDDM) Init(param map[string]string) error {
 	return nil
 }
 
-func (d *dummyDDM) Sync( param map[string]string, vol []*client.Volume) (string, error) {
+func (d *dummyDDM) Sync( param map[string]string) (string, error) {
 	d.log.Info("Syncing engine %v", param["engineName"])
-	d.log.Info("Synced vol %v", vol)
 	return "dummy_id", nil
 }
 

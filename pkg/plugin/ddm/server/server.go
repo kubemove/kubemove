@@ -33,7 +33,7 @@ func NewDDMServer() (DDM, error) {
 	}, nil
 }
 
-func (d *ddm) Init(pluginName string, config map[string]string) error {
+func (d *ddm) Init(pluginName string, engine v1alpha1.MoveEngine) error {
 	cpl := d.server.Get(pluginName, true)
 	defer d.server.Put(pluginName)
 	if cpl == nil {
@@ -48,7 +48,12 @@ func (d *ddm) Init(pluginName string, config map[string]string) error {
 	s := &plugin{
 		DataSyncerClient: pl,
 	}
-	return s.init(config)
+	params := map[string]string{
+		EngineName:      engine.Name,
+		EngineNamespace: engine.Namespace,
+	}
+
+	return s.init(params)
 }
 
 func (d *ddm) SyncData(pluginName string, ds v1alpha1.DataSync) (string, error) {
@@ -66,10 +71,17 @@ func (d *ddm) SyncData(pluginName string, ds v1alpha1.DataSync) (string, error) 
 	s := &plugin{
 		DataSyncerClient: pl,
 	}
-	return s.syncData(ds)
+
+	params := map[string]string{
+		EngineName:      ds.Spec.MoveEngine,
+		EngineNamespace: ds.Spec.Namespace,
+		SnapshotName:    ds.Name, // snapshot name is same as the DataSync CR name
+
+	}
+	return s.syncData(params)
 }
 
-func (d *ddm) SyncStatus(pluginName, id string) (int32, error) {
+func (d *ddm) SyncStatus(pluginName string, ds v1alpha1.DataSync) (int32, error) {
 	cpl := d.server.Get(pluginName, true)
 	defer d.server.Put(pluginName)
 	if cpl == nil {
@@ -84,5 +96,11 @@ func (d *ddm) SyncStatus(pluginName, id string) (int32, error) {
 	s := &plugin{
 		DataSyncerClient: pl,
 	}
-	return s.syncStatus(id)
+	params := map[string]string{
+		EngineName:      ds.Spec.MoveEngine,
+		EngineNamespace: ds.Spec.Namespace,
+		SnapshotName:    ds.Name, // snapshot name is same as the DataSync CR name
+
+	}
+	return s.syncStatus(params)
 }

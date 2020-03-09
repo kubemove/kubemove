@@ -3,9 +3,7 @@ package server
 import (
 	"context"
 
-	"github.com/kubemove/kubemove/pkg/apis/kubemove/v1alpha1"
 	pb "github.com/kubemove/kubemove/pkg/plugin/proto"
-	"github.com/pkg/errors"
 )
 
 const (
@@ -13,46 +11,21 @@ const (
 	ERR = 1
 )
 
-func (p *plugin) init(config map[string]string) error {
+func (p *plugin) init(params map[string]string) error {
 	req := &pb.InitRequest{
-		Config: config,
+		Params: params,
 	}
 
-	res, err := p.Init(context.Background(), req)
+	_, err := p.Init(context.Background(), req)
 	if err != nil {
 		return err
-	}
-
-	if res.Status != OK {
-		return errors.Errorf("Failed to initialize plugin {%s}", res.Reason)
 	}
 	return nil
 }
 
-func getSyncVolList(vol []*v1alpha1.DataVolume) map[string]*pb.SyncRequest_SyncVolRequest {
-	volList := make(map[string]*pb.SyncRequest_SyncVolRequest)
-
-	for _, v := range vol {
-		syncVol := &pb.SyncRequest_SyncVolRequest{
-			VolumeName:        v.Name,
-			VolumeClaim:       v.PVC,
-			RemoteVolumeClaim: v.PVC,
-			LocalNS:           v.Namespace,
-			RemoteNS:          v.RemoteNamespace,
-		}
-		volList[v.Name] = syncVol
-	}
-
-	return volList
-}
-
-func (p *plugin) syncData(ds v1alpha1.DataSync) (string, error) {
-	volList := getSyncVolList(ds.Spec.Volume)
+func (p *plugin) syncData(params map[string]string) (string, error) {
 	req := &pb.SyncRequest{
-		Engine:     ds.Spec.MoveEngine,
-		Restore:    ds.Spec.Restore,
-		Params:     ds.Spec.Config,
-		VolumeList: volList,
+		Params: params,
 	}
 
 	res, err := p.SyncData(context.Background(), req)
@@ -60,16 +33,12 @@ func (p *plugin) syncData(ds v1alpha1.DataSync) (string, error) {
 		return "", err
 	}
 
-	if len(res.SyncID) == 0 {
-		return "", errors.Errorf("Failed to sync data {%v}", res.Reason)
-	}
-
 	return res.SyncID, nil
 }
 
-func (p *plugin) syncStatus(id string) (int32, error) {
+func (p *plugin) syncStatus(params map[string]string) (int32, error) {
 	req := &pb.SyncStatusRequest{
-		SyncID: id,
+		Params: params,
 	}
 
 	res, err := p.SyncStatus(context.Background(), req)
@@ -77,5 +46,5 @@ func (p *plugin) syncStatus(id string) (int32, error) {
 		return ERR, err
 	}
 
-	return res.Status, errors.New(res.Reason)
+	return res.Status, nil
 }

@@ -7,23 +7,12 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
-// DataVolume defines volume space for dataSync
-type DataVolume struct {
-	Namespace       string            `json:"namespace"`
-	Name            string            `json:"name"`
-	PVC             string            `json:"pvc"`
-	RemoteName      string            `json:"remoteName"`
-	RemoteNamespace string            `json:"remoteNamespace"`
-	Param           map[string]string `json:"param"`
-}
-
 // DataSyncSpec defines the desired state of DataSync
 // +k8s:openapi-gen=true
 type DataSyncSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html
-	Volume         []*DataVolume     `json:"volume"`
 	Namespace      string            `json:"namespace"`
 	PluginProvider string            `json:"plugin"`
 	MoveEngine     string            `json:"moveEngine"`
@@ -41,7 +30,6 @@ type DataSyncStatus struct {
 	Stage          string          `json:"stage"`
 	Status         string          `json:"status"`
 	CompletionTime string          `json:"completionTime"`
-	Volumes        []*VolumeStatus `json:"volume"`
 	Reason         string          `json:"reason"`
 }
 

@@ -131,14 +131,8 @@ func (m *MoveEngineAction) ParseResourceEngine(mov *v1alpha1.MoveEngine) error {
 		return errors.Errorf("Failed to initialize client.. %v", err)
 	}
 
-	ls, err := metav1.LabelSelectorAsSelector(mov.Spec.Selectors)
-	if err != nil {
-		m.log.Error(err, "Failed to parse label selector")
-		return err
-	}
 
 	m.MEngine = *mov
-	m.selector = ls
 
 	err = m.UpdateSyncResourceList()
 	if err != nil {
@@ -215,18 +209,6 @@ func (m *MoveEngineAction) UpdateMoveEngineStatus(err error, ds string) error {
 	newStatus.SyncedTime = metav1.Time{Time: time.Now()}
 	newStatus.LastSyncedTime = lastStatus.SyncedTime
 	newStatus.LastStatus = lastStatus.Status
-
-	// resource status
-	for _, l := range m.syncedResourceMap {
-		r := l
-		newStatus.Resources = append(newStatus.Resources, &r)
-	}
-
-	// volume status
-	for _, l := range m.syncedVolMap {
-		r := l
-		newStatus.Volumes = append(newStatus.Volumes, &r)
-	}
 
 	newStatus.DataSync = ds
 

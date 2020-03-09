@@ -38,42 +38,15 @@ spec:
             moveEngine:
               type: string
             namespace:
+              description: 'INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
+                Important: Run "operator-sdk generate k8s" to regenerate code after
+                modifying this file Add custom validation using kubebuilder tags:
+                https://book.kubebuilder.io/beyond_basics/generating_crd.html'
               type: string
             plugin:
               type: string
             restore:
               type: boolean
-            volume:
-              description: 'INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-                Important: Run "operator-sdk generate k8s" to regenerate code after
-                modifying this file Add custom validation using kubebuilder tags:
-                https://book.kubebuilder.io/beyond_basics/generating_crd.html'
-              items:
-                description: DataVolume defines volume space for dataSync
-                properties:
-                  name:
-                    type: string
-                  namespace:
-                    type: string
-                  param:
-                    additionalProperties:
-                      type: string
-                    type: object
-                  pvc:
-                    type: string
-                  remoteName:
-                    type: string
-                  remoteNamespace:
-                    type: string
-                required:
-                - name
-                - namespace
-                - param
-                - pvc
-                - remoteName
-                - remoteNamespace
-                type: object
-              type: array
           required:
           - backup
           - config
@@ -81,7 +54,6 @@ spec:
           - namespace
           - plugin
           - restore
-          - volume
           type: object
         status:
           description: DataSyncStatus defines the observed state of DataSync
@@ -98,51 +70,11 @@ spec:
               type: string
             status:
               type: string
-            volume:
-              items:
-                description: VolumeStatus sync status of volumes
-                properties:
-                  RemoteVolume:
-                    type: string
-                  Status:
-                    type: string
-                  Synced:
-                    format: date-time
-                    type: string
-                  Volume:
-                    type: string
-                  lastStatus:
-                    type: string
-                  lastSyncedTime:
-                    format: date-time
-                    type: string
-                  namespace:
-                    type: string
-                  pvc:
-                    type: string
-                  reason:
-                    type: string
-                  remoteNamespace:
-                    type: string
-                required:
-                - RemoteVolume
-                - Status
-                - Synced
-                - Volume
-                - lastStatus
-                - lastSyncedTime
-                - namespace
-                - pvc
-                - reason
-                - remoteNamespace
-                type: object
-              type: array
           required:
           - completionTime
           - reason
           - stage
           - status
-          - volume
           type: object
       type: object
   version: v1alpha1

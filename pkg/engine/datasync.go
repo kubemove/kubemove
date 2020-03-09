@@ -22,17 +22,6 @@ func (m *MoveEngineAction) CreateDataSync() (string, error) {
 		Backup:         true,
 	}
 
-	for _, l := range m.syncedVolMap {
-		vObj := &v1alpha1.DataVolume{
-			Namespace:       l.Namespace,
-			Name:            l.Volume,
-			PVC:             l.PVC,
-			RemoteName:      l.RemoteVolume,
-			RemoteNamespace: l.RemoteNamespace,
-		}
-		spec.Volume = append(spec.Volume, vObj)
-	}
-
 	dsObj.Spec = spec
 
 	err := m.client.Create(context.TODO(), dsObj)

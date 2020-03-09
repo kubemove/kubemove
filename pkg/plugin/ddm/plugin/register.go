@@ -30,33 +30,12 @@ func (s *server) Init(ctx context.Context, req *pb.InitRequest) (*pb.InitRespons
 		return nil, err
 	}
 
-	return &pb.InitResponse{
-	}, nil
-}
-
-func getSyncVolList(vol map[string]*pb.SyncRequest_SyncVolRequest) []*Volume {
-	var volList []*Volume
-
-	for _, v := range vol {
-		sVol := &Volume{
-			VolumeName:        v.VolumeName,
-			VolumeClaim:       v.VolumeClaim,
-			RemoteVolumeClaim: v.RemoteVolumeClaim,
-			LocalNS:           v.LocalNS,
-			RemoteNS:          v.RemoteNS,
-		}
-		volList = append(volList, sVol)
-	}
-
-	return volList
+	return &pb.InitResponse{}, nil
 }
 
 func (s *server) SyncData(ctx context.Context, req *pb.SyncRequest) (*pb.SyncResponse, error) {
-	volList := getSyncVolList(req.VolumeList)
-	id, err := s.client.Sync(
-		req.Params,
-		volList,
-	)
+	id, err := s.client.Sync(req.Params)
+
 	if err != nil {
 		return nil, err
 	}

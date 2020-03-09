@@ -13,14 +13,15 @@ IMG_TAG?=ci
 BASE_ENGINE_IMG?=$(HUB_USER)/move-base
 BASE_ENGINE_TAG=ci
 
-DOCKER_REGISTRY?=kubemovedev
+REGISTRY?=kubemovedev
 REPO_ROOT:=$(shell pwd)
+MODULE=github.com/kubemove/kubemove
 
 GO_VERSION?=1.13.8
 GO_PROTO_VERSION?=v1.3.3
 OPERATOR_SDK_VERSION?=v0.12.0
 
-BUILD_IMAGE      ?= $(DOCKER_REGISTRY)/kubemove-dev:$(GO_VERSION)
+BUILD_IMAGE      ?= $(REGISTRY)/kubemove-dev:$(GO_VERSION)
 
 # directories required to build the project
 BUILD_DIRS:= build/_output \
@@ -41,10 +42,6 @@ else
 endif
 
 all: datasync engine pair dummy_plugin
-
-format:
-	@echo "--> Running go fmt"
-	@go fmt $(PACKAGES)
 
 vet:
 	go vet ${PACKAGES}
@@ -83,8 +80,10 @@ pair: $(BUILD_DIRS)
 dummy_plugin: $(BUILD_DIRS)
 	@echo "Building dummy plugin"
 	@rm -rf _output/bin/dummy_plugin
-	@go build -o $(BIN_DIR)/dummy_plugin cmd/dummy_plugin/dummy_plugin.go
+	@go build -o $(BIN_DIR)/dummy_plugin cmd/dummy_plugin/main.go
 	@echo "Done"
+
+build: datasync engine pair dummy_plugin
 
 clean:
 	@echo "Removing old binaries"
@@ -147,6 +146,91 @@ gen-crds: $(BUILD_DIRS)
 			$(BUILD_IMAGE)                                          \
 			/bin/bash -c "operator-sdk generate openapi"
 	@echo "Successfully generated crds"
+
+.PHONY: gen-k8s
+gen-k8s: $(BUILD_DIRS)
+	@echo ""
+	@echo "Running operator-sdk generate k8s ...."
+	@docker run                                                     \
+			-i                                                      \
+			--rm                                                    \
+			-u $$(id -u):$$(id -g)                                  \
+			-v $$(pwd):/src                                         \
+			-v $$(pwd)/.go/cache:/.cache                            \
+			-w /src                                                 \
+			--env HTTP_PROXY=$(HTTP_PROXY)                          \
+			--env HTTPS_PROXY=$(HTTPS_PROXY)                        \
+			$(BUILD_IMAGE)                                          \
+			/bin/bash -c "operator-sdk generate k8s"
+	@echo "Done"
+
+
+# Run gofmt and goimports in all packages except vendor
+# Example: make format REGISTRY=<your docker registry>
+.PHONY: format
+format: $(BUILD_DIRS)
+	@echo "Formatting repo...."
+	@docker run                                                     			\
+			-i                                                      			\
+			--rm                                                    			\
+			-u $$(id -u):$$(id -g)                                  			\
+			-v $$(pwd):/go/src/$(MODULE)                            			\
+			-v $$(pwd)/.go/cache:/.cache                            			\
+			-w /go/src                                              			\
+			--env HTTP_PROXY=$(HTTP_PROXY)                          			\
+			--env HTTPS_PROXY=$(HTTPS_PROXY)                        			\
+			--env GO111MODULE=on                                    			\
+			--env GOFLAGS="-mod=vendor"                             			\
+			$(BUILD_IMAGE)                                          			\
+			/bin/sh -c "gofmt -s -w $(PACKAGES)	&& goimports -w $(PACKAGES)"
+	@echo "Done"
+
+# Run linter
+# Example: make lint REGISTRY=<your docker registry>
+ADDITIONAL_LINTERS   := goconst,gofmt,goimports,unparam
+.PHONY: lint
+lint: $(BUILD_DIRS)
+	@echo "Running go lint....."
+	@docker run                                                     \
+			-i                                                      \
+			--rm                                                    \
+			-u $$(id -u):$$(id -g)                                  \
+			-v $$(pwd):/go/src/$(MODULE)                            \
+			-v $$(pwd)/.go/cache:/.cache                            \
+			-w /go/src/$(MODULE)                                    \
+			--env HTTP_PROXY=$(HTTP_PROXY)                          \
+			--env HTTPS_PROXY=$(HTTPS_PROXY)                        \
+			--env GO111MODULE=on                                    \
+			--env GOFLAGS="-mod=vendor"                             \
+			$(BUILD_IMAGE)                                          \
+			golangci-lint run                                       \
+			--enable $(ADDITIONAL_LINTERS)                          \
+			--timeout=10m                                           \
+			--skip-dirs-use-default                                 \
+			--skip-dirs=vendor										\
+			--skip-files="zz_generated.*\.go$\"
+	@echo "Done"
+
+# Update the dependencies
+# Example: make revendor
+.PHONY: revendor
+revendor:
+	@echo "Revendoring project....."
+	@docker run                                                     \
+			-i                                                      \
+			--rm                                                    \
+			-u $$(id -u):$$(id -g)                                  \
+			-v $$(pwd):/go/src/$(MODULE)                            \
+			-v $$(pwd)/.go/cache:/.cache                            \
+			-w /go/src/$(MODULE)                                    \
+			--env HTTP_PROXY=$(HTTP_PROXY)                          \
+			--env HTTPS_PROXY=$(HTTPS_PROXY)                        \
+			--env GO111MODULE=on                                    \
+			--env GOFLAGS="-mod=vendor"                             \
+			$(BUILD_IMAGE)                                          \
+			/bin/sh -c "go mod vendor && go mod tidy"
+	@echo "Done"
+
 
 .PHONY: dev-image
 dev-image:

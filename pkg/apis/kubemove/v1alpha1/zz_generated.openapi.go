@@ -80,23 +80,11 @@ func schema_pkg_apis_kubemove_v1alpha1_DataSyncSpec(ref common.ReferenceCallback
 				Description: "DataSyncSpec defines the desired state of DataSync",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"volume": {
-						SchemaProps: spec.SchemaProps{
-							Description: "INSERT ADDITIONAL SPEC FIELDS - desired state of cluster Important: Run \"operator-sdk generate k8s\" to regenerate code after modifying this file Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html",
-							Type:        []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Ref: ref("./pkg/apis/kubemove/v1alpha1.DataVolume"),
-									},
-								},
-							},
-						},
-					},
 					"namespace": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "INSERT ADDITIONAL SPEC FIELDS - desired state of cluster Important: Run \"operator-sdk generate k8s\" to regenerate code after modifying this file Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"plugin": {
@@ -138,11 +126,9 @@ func schema_pkg_apis_kubemove_v1alpha1_DataSyncSpec(ref common.ReferenceCallback
 						},
 					},
 				},
-				Required: []string{"volume", "namespace", "plugin", "moveEngine", "backup", "restore", "config"},
+				Required: []string{"namespace", "plugin", "moveEngine", "backup", "restore", "config"},
 			},
 		},
-		Dependencies: []string{
-			"./pkg/apis/kubemove/v1alpha1.DataVolume"},
 	}
 }
 
@@ -172,18 +158,6 @@ func schema_pkg_apis_kubemove_v1alpha1_DataSyncStatus(ref common.ReferenceCallba
 							Format: "",
 						},
 					},
-					"volume": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Ref: ref("./pkg/apis/kubemove/v1alpha1.VolumeStatus"),
-									},
-								},
-							},
-						},
-					},
 					"reason": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
@@ -191,11 +165,9 @@ func schema_pkg_apis_kubemove_v1alpha1_DataSyncStatus(ref common.ReferenceCallba
 						},
 					},
 				},
-				Required: []string{"stage", "status", "completionTime", "volume", "reason"},
+				Required: []string{"stage", "status", "completionTime", "reason"},
 			},
 		},
-		Dependencies: []string{
-			"./pkg/apis/kubemove/v1alpha1.VolumeStatus"},
 	}
 }
 
@@ -269,11 +241,6 @@ func schema_pkg_apis_kubemove_v1alpha1_MoveEngineSpec(ref common.ReferenceCallba
 							Format: "",
 						},
 					},
-					"selectors": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"),
-						},
-					},
 					"syncPeriod": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
@@ -304,11 +271,11 @@ func schema_pkg_apis_kubemove_v1alpha1_MoveEngineSpec(ref common.ReferenceCallba
 						},
 					},
 				},
-				Required: []string{"movePair", "namespace", "remoteNamespace", "selectors", "syncPeriod", "mode", "plugin", "includeResources"},
+				Required: []string{"movePair", "namespace", "remoteNamespace", "syncPeriod", "mode", "plugin", "includeResources"},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector", "k8s.io/apimachinery/pkg/runtime.RawExtension"},
+			"k8s.io/apimachinery/pkg/runtime.RawExtension"},
 	}
 }
 
@@ -354,36 +321,12 @@ func schema_pkg_apis_kubemove_v1alpha1_MoveEngineStatus(ref common.ReferenceCall
 							Format: "",
 						},
 					},
-					"Volumes": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Ref: ref("./pkg/apis/kubemove/v1alpha1.VolumeStatus"),
-									},
-								},
-							},
-						},
-					},
-					"Resources": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Ref: ref("./pkg/apis/kubemove/v1alpha1.ResourceStatus"),
-									},
-								},
-							},
-						},
-					},
 				},
-				Required: []string{"Status", "LastStatus", "SyncedTime", "LastSyncedTime", "DataSync", "DataSyncStatus", "Volumes", "Resources"},
+				Required: []string{"Status", "LastStatus", "SyncedTime", "LastSyncedTime", "DataSync", "DataSyncStatus"},
 			},
 		},
 		Dependencies: []string{
-			"./pkg/apis/kubemove/v1alpha1.ResourceStatus", "./pkg/apis/kubemove/v1alpha1.VolumeStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
 	}
 }
 

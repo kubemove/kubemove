@@ -124,13 +124,7 @@ func (r *ReconcileMoveEngine) Reconcile(request reconcile.Request) (reconcile.Re
 	}
 
 	if instance.Status.Status == "" {
-		err := r.ddm.Init(
-			instance.Spec.PluginProvider,
-			map[string]string{
-				"movePair":   instance.Spec.MovePair,
-				"moveEngine": instance.Name,
-			},
-		)
+		err := r.ddm.Init(instance.Spec.PluginProvider, *instance)
 		if err != nil {
 			r.log.Error(err, "Failed to initialize plugin")
 			return reconcile.Result{}, err

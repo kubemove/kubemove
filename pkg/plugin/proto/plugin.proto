@@ -18,15 +18,6 @@ message InitResponse {
 
 message SyncRequest {
    map <string, string> params = 1;
-
-    message SyncVolRequest {
-      string volumeName = 1;
-      string volumeClaim = 2;
-      string remoteVolumeClaim = 3;
-      string localNS = 4;
-      string remoteNS = 5;
-    }
-    map <string, SyncVolRequest> volumeList = 2;
 }
 
 message SyncResponse {
