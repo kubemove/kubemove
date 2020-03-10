@@ -41,6 +41,7 @@ func main() {
 	// Add the zap logger flag set to the CLI. The flag set must
 	// be added before calling pflag.Parse().
 	pflag.CommandLine.AddFlagSet(zap.FlagSet())
+	pflag.BoolVar(&moveengine.EnableResources, "resource", false, "Enable resource miration.. This feature is in development stage")
 
 	// Add flags registered by imported packages (e.g. glog and
 	// controller-runtime)

@@ -29,6 +29,9 @@ import (
 
 var log = logf.Log.WithName("controller_moveengine")
 
+// EnableResources defines if resources needs to be migrated
+var EnableResources bool
+
 // Add creates a new MoveEngine Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(mgr manager.Manager) error {
@@ -110,7 +113,7 @@ func (r *ReconcileMoveEngine) Reconcile(request reconcile.Request) (reconcile.Re
 	}
 
 	//TODO
-	if r.discoveryHelper == nil {
+	if r.discoveryHelper == nil && EnableResources {
 		if err = r.setupHelper(); err != nil {
 			r.log.Error(err, "Error setting up helper")
 			return reconcile.Result{}, err
@@ -145,9 +148,11 @@ func (r *ReconcileMoveEngine) Reconcile(request reconcile.Request) (reconcile.Re
 
 	//TODO
 	me := engine.NewMoveEngineAction(r.log, r.client, r.discoveryHelper)
-	err = me.ParseResourceEngine(instance)
-	if err != nil {
-		r.log.Error(err, "Failed to parse resources")
+	if EnableResources {
+		err = me.ParseResourceEngine(instance)
+		if err != nil {
+			r.log.Error(err, "Failed to parse resources")
+		}
 	}
 
 	dsName, err := me.CreateDataSync()
