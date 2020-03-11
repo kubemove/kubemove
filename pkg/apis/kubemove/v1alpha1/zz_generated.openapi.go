@@ -383,7 +383,7 @@ func schema_pkg_apis_kubemove_v1alpha1_MovePairSpec(ref common.ReferenceCallback
 				Properties: map[string]spec.Schema{
 					"config": {
 						SchemaProps: spec.SchemaProps{
-							Description: "INSERT ADDITIONAL SPEC FIELDS - desired state of cluster Important: Run \"operator-sdk generate k8s\" to regenerate code after modifying this file Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html",
+							Description: "Config specifies the cluster config",
 							Ref:         ref("k8s.io/client-go/tools/clientcmd/api/v1.Config"),
 						},
 					},

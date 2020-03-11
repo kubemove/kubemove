@@ -244,3 +244,60 @@ deploy-images:
 	@IMAGE=$(ENGINE_IMG) ./build/push
 	@IMAGE=$(PAIR_IMG) ./build/push
 	@IMAGE=$(DS_IMG) ./build/push
+	@echo ""
+	@echo "Pushing developer image...."
+	@docker push $(BUILD_IMAGE)
+
+
+KUBECONFIG?=
+SRC_CONTEXT?=kind-src-cluster
+DST_CONTEXT?=kind-dst-cluster
+
+
+SRC_ES_NODE_PORT?=
+DST_ES_NODE_PORT?=
+
+SRC_CONTROL_PANE:=$(shell /bin/bash -c "kubectl get pod -n kube-system  -o name --context=$(SRC_CONTEXT)| grep kube-apiserver")
+SRC_CLUSTER_IP=$(shell (kubectl get -n kube-system $(SRC_CONTROL_PANE) -o yaml --context=$(SRC_CONTEXT)| grep advertise-address= | cut -c27-))
+DST_CONTROL_PANE:=$(shell /bin/bash -c "kubectl get pod -n kube-system  -o name --context=$(DST_CONTEXT)| grep kube-apiserver")
+DST_CLUSTER_IP=$(shell (kubectl get -n kube-system $(DST_CONTROL_PANE) -o yaml --context=$(DST_CONTEXT)| grep advertise-address= | cut -c27-))
+
+.PHONY: prepare
+prepare:
+	$(eval SRC_CLUSTER_CA:=$(shell (kubectl config view --raw -o=jsonpath='{.clusters[?(@.name=="$(SRC_CONTEXT)")].cluster.certificate-authority-data}')))
+	$(eval SRC_CLUSTER_CLIENT_CERT:=$(shell (kubectl config view --raw -o=jsonpath='{.users[?(@.name=="$(SRC_CONTEXT)")].user.client-certificate-data}')))
+	$(eval SRC_CLUSTER_CLIENT_KEY:=$(shell (kubectl config view --raw -o=jsonpath='{.users[?(@.name=="$(SRC_CONTEXT)")].user.client-key-data}')))
+	$(eval DST_CLUSTER_CA:=$(shell (kubectl config view --raw -o=jsonpath='{.clusters[?(@.name=="$(DST_CONTEXT)")].cluster.certificate-authority-data}')))
+	$(eval DST_CLUSTER_CLIENT_CERT:=$(shell (kubectl config view --raw -o=jsonpath='{.users[?(@.name=="$(DST_CONTEXT)")].user.client-certificate-data}')))
+	$(eval DST_CLUSTER_CLIENT_KEY:=$(shell (kubectl config view --raw -o=jsonpath='{.users[?(@.name=="$(DST_CONTEXT)")].user.client-key-data}')))
+	@docker run                                                     \
+			-i                                                      \
+			--rm                                                    \
+			--net=host                                              \
+			-u $$(id -u):$$(id -g)                                  \
+			-v $$(pwd):/go/src/$(MODULE)                            \
+			-v $$(pwd)/.go/cache:/.cache                            \
+			-v $(HOME)/.kube:/.kube                                 \
+			-v /tmp:/.mc											\
+			-w /go/src/$(MODULE)                                    \
+			--env HTTP_PROXY=$(HTTP_PROXY)                          \
+			--env HTTPS_PROXY=$(HTTPS_PROXY)                        \
+			--env KUBECONFIG=$(KUBECONFIG)                          \
+			--env GO111MODULE=on                                    \
+			--env GOFLAGS="-mod=vendor"                             \
+			--env REGISTRY=$(REGISTRY)                              \
+			--env SRC_CLUSTER_CA=$(SRC_CLUSTER_CA) 				    \
+			--env SRC_CLUSTER_CLIENT_CERT=$(SRC_CLUSTER_CLIENT_CERT)\
+			--env SRC_CLUSTER_CLIENT_KEY=$(SRC_CLUSTER_CLIENT_KEY)  \
+			--env SRC_CLUSTER_NAME=$(SRC_CONTEXT)                   \
+			--env SRC_CLUSTER_IP=$(SRC_CLUSTER_IP)                  \
+			--env DST_CLUSTER_CA=$(DST_CLUSTER_CA) 				    \
+			--env DST_CLUSTER_CLIENT_CERT=$(DST_CLUSTER_CLIENT_CERT)\
+			--env DST_CLUSTER_CLIENT_KEY=$(DST_CLUSTER_CLIENT_KEY)  \
+			--env DST_CLUSTER_NAME=$(DST_CONTEXT)                   \
+			--env DST_CLUSTER_IP=$(DST_CLUSTER_IP)                  \
+			$(BUILD_IMAGE)                                          \
+			/bin/bash -c "                                          \
+				KUBECONFIG=$${KUBECONFIG#$(HOME)}                   \
+				./hack/prepare.sh \
+				"
