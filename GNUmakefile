@@ -2,18 +2,10 @@ SHELL=/bin/bash -o pipefail
 
 PACKAGES = $(shell go list ./... | grep -v 'vendor')
 
-HUB_USER?=mayankrpatel
-ENGINE_IMG?=$(HUB_USER)/move-engine
-PAIR_IMG?=$(HUB_USER)/move-pair
-DS_IMG?=$(HUB_USER)/move-ds
-PLUGIN_IMG?=$(HUB_USER)/move-plugin
-
 IMG_TAG?=ci
-
-BASE_ENGINE_IMG?=$(HUB_USER)/move-base
 BASE_ENGINE_TAG=ci
 
-REGISTRY?=kubemovedev
+REGISTRY?=kubemove
 REPO_ROOT:=$(shell pwd)
 MODULE=github.com/kubemove/kubemove
 
@@ -21,7 +13,12 @@ GO_VERSION?=1.13.8
 GO_PROTO_VERSION?=v1.3.3
 OPERATOR_SDK_VERSION?=v0.12.0
 
-BUILD_IMAGE      ?= $(REGISTRY)/kubemove-dev:$(GO_VERSION)
+DEV_IMG      ?= $(REGISTRY)/kubemove-dev:$(GO_VERSION)
+BASE_ENGINE_IMG?=$(REGISTRY)/move-base
+ENGINE_IMG?=$(REGISTRY)/move-engine
+PAIR_IMG?=$(REGISTRY)/move-pair
+DS_IMG?=$(REGISTRY)/move-datasync
+PLUGIN_IMG?=$(REGISTRY)/move-plugin
 
 # directories required to build the project
 BUILD_DIRS:= build/_output \
@@ -43,21 +40,19 @@ endif
 
 all: datasync engine pair dummy_plugin
 
+.PHONY: bootstrap
+bootstrap:
+	@go get -u gopkg.in/alecthomas/gometalinter.v1
+
 vet:
 	go vet ${PACKAGES}
 
 golint:
-	@gometalinter --install
-	@gometalinter --vendor --disable-all -E errcheck -E misspell ./...
+	@gometalinter.v1 --install
+	@gometalinter.v1 --vendor --disable-all -E errcheck -E misspell ./...
 
 $(BUILD_DIRS):
 	@mkdir -p $@
-
-kubemove-cli: $(BUILD_DIRS)
-	@echo "Building kubemove-cli"
-	@rm -rf _output/bin/kubemove
-	@go build -o $(BIN_DIR)/kubemove cmd/kubemove/main.go
-	@echo "Done"
 
 datasync: $(BUILD_DIRS)
 	@echo "Building kubemove-datasync"
@@ -89,6 +84,8 @@ clean:
 	@echo "Removing old binaries"
 	@rm -rf ${BUILD_DIR}
 	@echo "Done"
+
+images: engine-image pair-image datasync-image
 
 engine-image: base-image engine
 	@echo "Building docker image for kubemove-engine"
@@ -126,7 +123,7 @@ gen-grpc:
 			-w /src                                                 \
 			--env HTTP_PROXY=$(HTTP_PROXY)                          \
 			--env HTTPS_PROXY=$(HTTPS_PROXY)                        \
-			$(BUILD_IMAGE)                                          \
+			$(DEV_IMG)                                          \
 			/bin/bash -c "protoc --go_out=plugins=grpc:. pkg/plugin/proto/*.proto"
 	@echo "Successfully generated gRPC codes"
 
@@ -143,7 +140,7 @@ gen-crds: $(BUILD_DIRS)
 			-w /src                                                 \
 			--env HTTP_PROXY=$(HTTP_PROXY)                          \
 			--env HTTPS_PROXY=$(HTTPS_PROXY)                        \
-			$(BUILD_IMAGE)                                          \
+			$(DEV_IMG)                                          \
 			/bin/bash -c "operator-sdk generate openapi"
 	@echo "Successfully generated crds"
 
@@ -160,7 +157,7 @@ gen-k8s: $(BUILD_DIRS)
 			-w /src                                                 \
 			--env HTTP_PROXY=$(HTTP_PROXY)                          \
 			--env HTTPS_PROXY=$(HTTPS_PROXY)                        \
-			$(BUILD_IMAGE)                                          \
+			$(DEV_IMG)                                          \
 			/bin/bash -c "operator-sdk generate k8s"
 	@echo "Done"
 
@@ -181,7 +178,7 @@ format: $(BUILD_DIRS)
 			--env HTTPS_PROXY=$(HTTPS_PROXY)                        			\
 			--env GO111MODULE=on                                    			\
 			--env GOFLAGS="-mod=vendor"                             			\
-			$(BUILD_IMAGE)                                          			\
+			$(DEV_IMG)                                          			\
 			/bin/sh -c "gofmt -s -w $(PACKAGES)	&& goimports -w $(PACKAGES)"
 	@echo "Done"
 
@@ -202,7 +199,7 @@ lint: $(BUILD_DIRS)
 			--env HTTPS_PROXY=$(HTTPS_PROXY)                        \
 			--env GO111MODULE=on                                    \
 			--env GOFLAGS="-mod=vendor"                             \
-			$(BUILD_IMAGE)                                          \
+			$(DEV_IMG)                                          \
 			golangci-lint run                                       \
 			--enable $(ADDITIONAL_LINTERS)                          \
 			--timeout=10m                                           \
@@ -227,7 +224,7 @@ revendor:
 			--env HTTPS_PROXY=$(HTTPS_PROXY)                        \
 			--env GO111MODULE=on                                    \
 			--env GOFLAGS="-mod=vendor"                             \
-			$(BUILD_IMAGE)                                          \
+			$(DEV_IMG)                                          \
 			/bin/sh -c "go mod vendor && go mod tidy"
 	@echo "Done"
 
@@ -235,11 +232,15 @@ revendor:
 .PHONY: dev-image
 dev-image:
 	@echo "Building developer image...."
-	@docker build -t $(BUILD_IMAGE) -f build/dev.Dockerfile ./build --no-cache \
+	@docker build -t $(DEV_IMG) -f build/dev.Dockerfile ./build --no-cache \
 			--build-arg GO_VERSION=$(GO_VERSION)                                   \
 			--build-arg GO_PROTO_VERSION=$(GO_PROTO_VERSION)                       \
 			--build-arg OPERATOR_SDK_VERSION=$(OPERATOR_SDK_VERSION)
 	@echo "Successfully built developer image"
-	@echo ""
-	@echo "Pushing developer image...."
-	@docker push $(BUILD_IMAGE)
+
+.PHONY: deploy-images
+deploy-images:
+	@IMAGE=$(BASE_ENGINE_IMG) ./build/push
+	@IMAGE=$(ENGINE_IMG) ./build/push
+	@IMAGE=$(PAIR_IMG) ./build/push
+	@IMAGE=$(DS_IMG) ./build/push

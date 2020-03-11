@@ -1,9 +1,26 @@
+sudo: required
 language: go
 
 go_import_path: github.com/kubemove/kubemove
 
+services:
+  - docker
+language: go
 go:
-  - "1.11.4"
+  - 1.13.8
+
+addons:
+  apt:
+    update: true
 
 script:
+  - make vet
+    # TODO
+    #  - make dev-image
+    #  - make lint
+    # - make format
   - make
+
+after_success:
+  - make images
+  - make deploy-images

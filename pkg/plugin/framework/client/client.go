@@ -56,7 +56,6 @@ func createServer(cAddr *addr, opt Initializer) {
 	lis, err := net.Listen("tcp", cAddr.addr)
 	if err != nil {
 		panic(err)
-		return
 	}
 
 	s := grpc.NewServer()
@@ -64,7 +63,6 @@ func createServer(cAddr *addr, opt Initializer) {
 
 	if err := s.Serve(lis); err != nil {
 		panic(err)
-		return
 	}
 	return
 }
