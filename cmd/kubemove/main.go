@@ -9,11 +9,11 @@ func main() {
 	pflag.CommandLine = flags
 
 	/*
-	// TODO
-	root := plugin.NewCmdKubeMove()
-	if err := root.Execute(); err != nil {
-		os.Exit(1)
-	}
-	 */
+		// TODO
+		root := plugin.NewCmdKubeMove()
+		if err := root.Execute(); err != nil {
+			os.Exit(1)
+		}
+	*/
 
 }

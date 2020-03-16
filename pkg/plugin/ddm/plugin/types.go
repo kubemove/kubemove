@@ -1,6 +1,5 @@
 package plugin
 
-
 type Plugin interface {
 	Init(map[string]string) error
 	Sync(map[string]string) (string, error)

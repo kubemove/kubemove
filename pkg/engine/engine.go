@@ -62,32 +62,32 @@ type MoveEngineAction struct {
 // If any API resource have multiple APIVersion then add it here
 func NewMultiAPIResources() map[string]*MultiResource {
 	return map[string]*MultiResource{
-		"daemonsets": &MultiResource{
+		"daemonsets": {
 			groupResource: []string{"extensions", "apps"},
 			seen:          false,
 		},
 
-		"deployments": &MultiResource{
+		"deployments": {
 			groupResource: []string{"extensions", "apps"},
 			seen:          false,
 		},
 
-		"ingresses": &MultiResource{
+		"ingresses": {
 			groupResource: []string{"extensions", "networking.k8s.io"},
 			seen:          false,
 		},
 
-		"networkpolicies": &MultiResource{
+		"networkpolicies": {
 			groupResource: []string{"extensions", "networking.k8s.io"},
 			seen:          false,
 		},
 
-		"podsecuritypolicies": &MultiResource{
+		"podsecuritypolicies": {
 			groupResource: []string{"extensions", "policy"},
 			seen:          false,
 		},
 
-		"replicasets": &MultiResource{
+		"replicasets": {
 			groupResource: []string{"extensions", "apps"},
 			seen:          false,
 		},
@@ -130,7 +130,6 @@ func (m *MoveEngineAction) ParseResourceEngine(mov *v1alpha1.MoveEngine) error {
 	if err := m.updateClient(pairObj); err != nil {
 		return errors.Errorf("Failed to initialize client.. %v", err)
 	}
-
 
 	m.MEngine = *mov
 
@@ -192,26 +191,29 @@ func (m *MoveEngineAction) updateClient(mpair *v1alpha1.MovePair) error {
 	return nil
 }
 
-func (m *MoveEngineAction) UpdateMoveEngineStatus(err error, ds string) error {
+func (m *MoveEngineAction) UpdateMoveEngineStatus(newStatus *v1alpha1.MoveEngineStatus, ds string) error {
 	lastStatus := m.MEngine.Status
-	newStatus := v1alpha1.MoveEngineStatus{}
 
-	if len(ds) == 0 {
-		return errors.New("Empty dataSync")
+	// If status has been updated, then set the new status and update lastStatus accordingly
+	if newStatus != nil &&
+		newStatus.Status != "" &&
+		newStatus.Status != lastStatus.Status {
+		m.MEngine.Status.Status = newStatus.Status
+		m.MEngine.Status.LastStatus = lastStatus.Status
 	}
 
-	if err != nil {
-		newStatus.Status = "Errored"
-	} else {
-		newStatus.Status = "Synced"
+	// If a new sync schedule has appeared, then set the synced time and update last syncTime accordingly
+	if ds != "" {
+		// Update the latest DataSync CR name
+		m.MEngine.Status.DataSync = ds
+		// Update Sync time
+		m.MEngine.Status.SyncedTime = metav1.Time{Time: time.Now()}
+		m.MEngine.Status.LastSyncedTime = lastStatus.SyncedTime
 	}
-
-	newStatus.SyncedTime = metav1.Time{Time: time.Now()}
-	newStatus.LastSyncedTime = lastStatus.SyncedTime
-	newStatus.LastStatus = lastStatus.Status
-
-	newStatus.DataSync = ds
-
-	m.MEngine.Status = newStatus
 	return m.client.Update(context.TODO(), &m.MEngine)
+}
+
+func (m *MoveEngineAction) GetStandbyEngineStatus() (v1alpha1.MoveEngineState, error) {
+	// TODO
+	return v1alpha1.MoveEngineInitialized, nil
 }

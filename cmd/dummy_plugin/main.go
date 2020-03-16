@@ -8,7 +8,7 @@ import (
 
 type dummyDDM struct {
 	log logr.Logger
-	p   client.Plugin
+	p   client.Plugin //nolint
 }
 
 var _ client.Plugin = (*dummyDDM)(nil)
@@ -32,7 +32,7 @@ func (d *dummyDDM) Init(param map[string]string) error {
 	return nil
 }
 
-func (d *dummyDDM) Sync( param map[string]string) (string, error) {
+func (d *dummyDDM) Sync(param map[string]string) (string, error) {
 	d.log.Info("Syncing engine %v", param["engineName"])
 	return "dummy_id", nil
 }

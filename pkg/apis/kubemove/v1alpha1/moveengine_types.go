@@ -8,10 +8,17 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
+//======================================== Developer Note ===================================================
+// After updating any fields of this file you must run the code generator.
+// To prepare code generator/developer environment, run: make dev-image REGISTRY=<your docker registry>
+// Then, each time you modify any field, run: make gen REGISTRY=<your docker registry>
+// Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html
+//============================================================================================================
+
 const (
-	ResourceKindMoveEngine = "MoveEngine"
+	ResourceKindMoveEngine     = "MoveEngine"
 	ResourceSingularMoveEngine = "moveengine"
-	ResourcePluralMoveEngine = "moveengines"
+	ResourcePluralMoveEngine   = "moveengines"
 )
 
 // MoveEngineSpec defines the desired state of MoveEngine
@@ -30,18 +37,27 @@ type MoveEngineSpec struct {
 	PluginParameters *runtime.RawExtension `json:"pluginParameters,omitempty"`
 }
 
+type MoveEngineState string
+
+const (
+	MoveEngineInitializing         MoveEngineState = "Initializing"
+	MoveEngineInitialized          MoveEngineState = "Initialized"
+	MoveEngineReady                MoveEngineState = "Ready"
+	MoveEngineInitializationFailed MoveEngineState = "InitializationFailed"
+)
+
 // MoveEngineStatus defines the observed state of MoveEngine
 // +k8s:openapi-gen=true
 type MoveEngineStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html
-	Status         string            `json:"Status"`
-	LastStatus     string            `json:"LastStatus"`
-	SyncedTime     metav1.Time       `json:"SyncedTime"`
-	LastSyncedTime metav1.Time       `json:"LastSyncedTime"`
-	DataSync       string            `json:"DataSync"`
-	DataSyncStatus string            `json:"DataSyncStatus"`
+	Status         MoveEngineState `json:"Status"`
+	LastStatus     MoveEngineState `json:"LastStatus"`
+	SyncedTime     metav1.Time     `json:"SyncedTime"`
+	LastSyncedTime metav1.Time     `json:"LastSyncedTime"`
+	DataSync       string          `json:"DataSync"`
+	DataSyncStatus string          `json:"DataSyncStatus"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

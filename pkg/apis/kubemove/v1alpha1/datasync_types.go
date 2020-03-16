@@ -27,10 +27,10 @@ type DataSyncStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html
-	Stage          string          `json:"stage"`
-	Status         string          `json:"status"`
-	CompletionTime string          `json:"completionTime"`
-	Reason         string          `json:"reason"`
+	Stage          string `json:"stage"`
+	Status         string `json:"status"`
+	CompletionTime string `json:"completionTime"`
+	Reason         string `json:"reason"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
