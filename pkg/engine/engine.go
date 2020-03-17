@@ -121,10 +121,12 @@ func NewMoveEngineAction(log logr.Logger, c client.Client, h helper.Helper, me *
 	if me == nil {
 		return nil, fmt.Errorf("failed to cretate MoveEngine clients. Reason: MoveEngine instance is nil")
 	}
-	// Add remote cluster specific options
-	err := opt.setRemoteOptions(me.Spec.MovePair)
-	if err != nil {
-		return nil, err
+	// Add remote cluster specific options. This should run only in the source cluster.
+	if me.Spec.Mode == MoveEngineActive {
+		err := opt.setRemoteOptions(me.Spec.MovePair)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return opt, nil
 }

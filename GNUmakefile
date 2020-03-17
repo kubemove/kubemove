@@ -90,23 +90,27 @@ images: engine-image pair-image datasync-image
 engine-image: base-image engine
 	@echo "Building docker image for kubemove-engine"
 	@docker build -t $(ENGINE_IMG):$(IMG_TAG) -f build/Dockerfile-engine --build-arg BASE_IMG=${BASE_ENGINE_IMG}:${BASE_ENGINE_TAG} ./build
+	@docker push $(ENGINE_IMG):$(IMG_TAG)
 
 pair-image: base-image pair
 	@echo "Building docker image for kubemove-pair"
 	@docker build -t $(PAIR_IMG):$(IMG_TAG) -f build/Dockerfile-pair --build-arg BASE_IMG=${BASE_ENGINE_IMG}:${BASE_ENGINE_TAG}  ./build
+	@docker push $(PAIR_IMG):$(IMG_TAG)
 
 datasync-image: datasync
 	@echo "Building docker image for kubemove-datasync"
 	@docker build -t $(DS_IMG):$(IMG_TAG) -f build/Dockerfile-ds ./build
+	@docker push $(DS_IMG):$(IMG_TAG)
 
 dummy_plugin-image: dummy_plugin
 	@echo "Building docker image for dummy kubemove-plugin"
 	@docker build -t $(PLUGIN_IMG):$(IMG_TAG) -f build/Dockerfile-plugin ./build
-
+	@docker push $(PLUGIN_IMG):$(IMG_TAG)
 
 base-image:
 	@echo "Building base docker image for kubemove"
 	@docker build -t $(BASE_ENGINE_IMG):$(BASE_ENGINE_TAG) -f build/Dockerfile-base ./build
+	@docker push $(BASE_ENGINE_IMG):$(BASE_ENGINE_TAG)
 
 .PHONY: gen
 gen: gen-crds gen-k8s gen-grpc

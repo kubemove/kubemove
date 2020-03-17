@@ -7,7 +7,7 @@ spec:
   #movepair name
   movePair: cluster1
   namespace: ns1
-  remoteNamespace: ns2
+  remoteNamespace: kubemove
   syncPeriod: "30 * * * *"
   plugin: dummy
   selectors:

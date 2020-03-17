@@ -65,6 +65,9 @@ type MoveEngineStatus struct {
 
 // MoveEngine is the Schema for the moveengines API
 // +k8s:openapi-gen=true
+// +kubebuilder:printcolumn:name="Mode",type="string",JSONPath=".spec.mode"
+// +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.Status"
+// +kubebuilder:printcolumn:name="Synced-Time",type="string",JSONPath=".status.SyncedTime"
 type MoveEngine struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

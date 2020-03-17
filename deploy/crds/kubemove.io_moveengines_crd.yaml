@@ -3,6 +3,16 @@ kind: CustomResourceDefinition
 metadata:
   name: moveengines.kubemove.io
 spec:
+  additionalPrinterColumns:
+  - JSONPath: .spec.mode
+    name: Mode
+    type: string
+  - JSONPath: .status.Status
+    name: Status
+    type: string
+  - JSONPath: .status.SyncedTime
+    name: Synced-Time
+    type: string
   group: kubemove.io
   names:
     kind: MoveEngine
@@ -10,6 +20,7 @@ spec:
     plural: moveengines
     singular: moveengine
   scope: ""
+  subresources: {}
   validation:
     openAPIV3Schema:
       description: MoveEngine is the Schema for the moveengines API
