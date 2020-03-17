@@ -16,6 +16,7 @@ import (
 	helper "github.com/vmware-tanzu/velero/pkg/discovery"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	errUtil "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -30,6 +31,7 @@ import (
 
 const (
 	RetryInterval = 30 * time.Second
+
 )
 
 var log = logf.Log.WithName("controller_moveengine")
@@ -131,8 +133,11 @@ func (r *ReconcileMoveEngine) Reconcile(request reconcile.Request) (reconcile.Re
 		return reconcile.Result{}, err
 	}
 
-	//TODO
-	me := engine.NewMoveEngineAction(r.log, r.client, r.discoveryHelper)
+	// TODO
+	me,err := engine.NewMoveEngineAction(r.log, r.client, r.discoveryHelper,instance)
+	if err!=nil{
+		return reconcile.Result{},err
+	}
 	if EnableResources {
 		err = me.ParseResourceEngine(instance)
 		if err != nil {
@@ -141,85 +146,93 @@ func (r *ReconcileMoveEngine) Reconcile(request reconcile.Request) (reconcile.Re
 	}
 
 	switch instance.Status.Status {
-	case "": // We haven't invoked the INIT API yet.
+	case "": // We haven't invoked the INIT API yet
 		// Set MoveEngine status to "Initializing"
-		err := me.UpdateMoveEngineStatus(&v1alpha1.MoveEngineStatus{Status: v1alpha1.MoveEngineInitializing}, "")
+		err := me.SetMoveEngineState(v1alpha1.MoveEngineInitializing)
 		if err != nil {
 			return reconcile.Result{}, err
+		}
+
+		// If MoveEngine mode is active, create a standby MoveEngine in the destination cluster.
+		if instance.Spec.Mode == engine.MoveEngineActive {
+			err := me.CreateStandbyMoveEngine()
+			if err != nil {
+				sErr := me.SetMoveEngineState(v1alpha1.MoveEngineInitializationFailed)
+				return reconcile.Result{}, errUtil.NewAggregate([]error{err, sErr})
+			}
 		}
 
 		// Invoke the INIT API
 		err = r.ddm.Init(instance.Spec.PluginProvider, *instance)
 		if err != nil {
-			// If the error is due to timeout, then just requeue after some time. Next step will take care of it.
-			if apierr.IsTimeout(err) { // TODO: parse actual timeout message.
-				return reconcile.Result{Requeue: true, RequeueAfter: RetryInterval}, nil
-			}
 			r.log.Error(err, "Failed to initialize plugin")
-			return reconcile.Result{}, err
+			sErr := me.SetMoveEngineState(v1alpha1.MoveEngineInitializationFailed)
+			return reconcile.Result{}, errUtil.NewAggregate([]error{err, sErr})
 		}
 
 		// MoveEngine has been initialized successfully. So, set MoveEngine status to "Initialized"
-		err = me.UpdateMoveEngineStatus(&v1alpha1.MoveEngineStatus{Status: v1alpha1.MoveEngineInitialized}, "")
+		err = me.SetMoveEngineState(v1alpha1.MoveEngineInitialized)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
-	case v1alpha1.MoveEngineInitializing:
-		// Invoke INIT_PROGRESS API to determine whether the plugin has completed it's initialization or not.
-		state, err := r.ddm.InitProgress(instance.Spec.PluginProvider, *instance)
-		if err != nil {
-			r.log.Error(err, "Failed to determine initialization progress. Reason: %v", err.Error())
-			return reconcile.Result{}, err
-		}
-		// MoveEngine has been initialized successfully. So, set MoveEngine status to "Initialized"
-		err = me.UpdateMoveEngineStatus(&v1alpha1.MoveEngineStatus{Status: v1alpha1.MoveEngineState(state)}, "")
-		if err != nil {
-			return reconcile.Result{}, err
-		}
+		// MoveEngine status has been updated. Rest of the process should continue based on the new status.
+		// Hence, we are doing a requeue so that rest of the process runs at next reconcilation.
+		return reconcile.Result{Requeue: true}, nil
+
 	case v1alpha1.MoveEngineInitialized:
-		// MoveEngine of the source has been initialized. Now, we need to the MoveEngine status of the destination cluster.
-		// TODO: determine MoveEngine status of the destination cluster
-		status, err := me.GetStandbyEngineStatus()
-		if err != nil {
-			r.log.Error(err, "Failed to determine the status of standby MoveEngine. Reason: %v", err.Error())
-			return reconcile.Result{}, err
-		}
-		if status == v1alpha1.MoveEngineInitialized {
-			// Standby MoveEngine has been initialized successfully. So, set MoveEngine status to "Ready"
-			err = me.UpdateMoveEngineStatus(&v1alpha1.MoveEngineStatus{Status: v1alpha1.MoveEngineReady}, "")
+		// MoveEngine of the source has been initialized.
+		// Now, if current MoveEngine is in active mode, we need to know the status of standby MoveEngine
+		// of the destination cluster to determine the final state.
+		if me.MEngine.Spec.Mode == engine.MoveEngineActive {
+			status, err := me.GetStandbyMoveEngineStatus()
 			if err != nil {
+				r.log.Error(err, "Failed to determine the status of standby MoveEngine. Reason: %v", err.Error())
 				return reconcile.Result{}, err
+			}
+			if status == v1alpha1.MoveEngineInitialized {
+				// Standby MoveEngine has been initialized successfully. So, set MoveEngine status to "Ready"
+				err = me.SetMoveEngineState(v1alpha1.MoveEngineReady)
+				if err != nil {
+					return reconcile.Result{}, err
+				}
+				// MoveEngine is ready. Rest of the process should be based on the new status.
+				// Hence, we are doing a requeue so that ready rest of the process runs at next reconcilation.
+				return reconcile.Result{Requeue: true}, nil
 			}
 		}
 	case v1alpha1.MoveEngineInitializationFailed:
-		// MoveEngine has failed to initialize. There is no point of processing further.
+		// MoveEngine has failed to be initialized. There is no point of processing further.
 		r.log.Info("Skipping processing MoveEngine: %s/%s. Reason: MoveEngine has failed to be initialized.", instance.Namespace, instance.Name)
 		return reconcile.Result{}, nil
 	case v1alpha1.MoveEngineReady:
-		// MoveEngine is ready. Now, we can start rest of the sync process
+		// MoveEngine is ready. Now, we can start rest of the sync process.
 		cr, err := cron.ParseStandard(instance.Spec.SyncPeriod)
 		if err != nil {
 			r.log.Error(err, "Failed to parse syncPeriod")
 			return reconcile.Result{}, err
 		}
 
+		// If its not time for a scheduled sync yet, reconcile at next sync period
 		if yes, nextSyncDelay := getNextDue(cr, *instance, time.Now()); !yes {
 			//TODO job will not be executed as per schedule time, delay due to processing
 			// schedule is not yet due
 			return reconcile.Result{Requeue: true, RequeueAfter: nextSyncDelay}, nil
 		}
 
+		// A schedule has appeared. Trigger a sync by creating a DataSync CR.
 		dsName, err := me.CreateDataSync()
 		if err != nil || len(dsName) == 0 {
 			r.log.Error(err, "Failed to create dataSync CR")
 			return reconcile.Result{}, err
 		}
-
+		// Add the newly created DataSync CR name in the MoveEngine status.
 		err = me.UpdateMoveEngineStatus(nil, dsName)
 		if err != nil {
 			r.log.Error(err, "Failed to update status")
 		}
 
+		// Current scheduled sync has been triggered. We have nothing to do until next schedule.
+		// So, reconcile at next sync period.
 		_, nextSyncDelay := getNextDue(cr, me.MEngine, time.Now())
 		return reconcile.Result{Requeue: true, RequeueAfter: nextSyncDelay}, nil
 	default:

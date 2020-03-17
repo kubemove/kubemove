@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"time"
 
 	pb "github.com/kubemove/kubemove/pkg/plugin/proto"
 )
@@ -16,7 +17,10 @@ func (p *plugin) init(params map[string]string) error {
 		Params: params,
 	}
 
-	_, err := p.Init(context.Background(), req)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+	defer cancel()
+
+	_, err := p.Init(ctx, req)
 	if err != nil {
 		return err
 	}

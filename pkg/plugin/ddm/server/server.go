@@ -56,11 +56,6 @@ func (d *ddm) Init(pluginName string, engine v1alpha1.MoveEngine) error {
 	return s.init(params)
 }
 
-func (d *ddm) InitProgress(pluginName string, engine v1alpha1.MoveEngine) (string, error) {
-	// TODO
-	return "Initialized", nil // completed
-}
-
 func (d *ddm) SyncData(pluginName string, ds v1alpha1.DataSync) (string, error) {
 	cpl := d.server.Get(pluginName, true)
 	defer d.server.Put(pluginName)

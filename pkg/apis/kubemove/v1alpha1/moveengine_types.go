@@ -44,6 +44,7 @@ const (
 	MoveEngineInitialized          MoveEngineState = "Initialized"
 	MoveEngineReady                MoveEngineState = "Ready"
 	MoveEngineInitializationFailed MoveEngineState = "InitializationFailed"
+	MoveEngineInvalid              MoveEngineState = "Invalid"
 )
 
 // MoveEngineStatus defines the observed state of MoveEngine

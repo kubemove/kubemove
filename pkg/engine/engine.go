@@ -3,10 +3,9 @@ package engine
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"time"
-
-	"github.com/pkg/errors"
 
 	"github.com/go-logr/logr"
 	"github.com/kubemove/kubemove/pkg/apis/kubemove/v1alpha1"
@@ -21,6 +20,11 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/restmapper"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+const (
+	MoveEngineActive  = "active"
+	MoveEngineStandby = "standby"
 )
 
 type MResources struct {
@@ -94,7 +98,7 @@ func NewMultiAPIResources() map[string]*MultiResource {
 	}
 
 }
-func NewMoveEngineAction(log logr.Logger, c client.Client, h helper.Helper) *MoveEngineAction {
+func NewMoveEngineAction(log logr.Logger, c client.Client, h helper.Helper, me *v1alpha1.MoveEngine) (*MoveEngineAction, error) {
 	resourcesMap := make(map[schema.GroupVersionResource]NamedObj)
 	syncedMap := make(map[MResources]v1alpha1.ResourceStatus)
 	exposedResourceMap := make(map[MResources]unstructured.Unstructured)
@@ -102,7 +106,7 @@ func NewMoveEngineAction(log logr.Logger, c client.Client, h helper.Helper) *Mov
 	syncedVolume := make(map[MResources]v1alpha1.VolumeStatus)
 	stsVolumeMap := make(map[MResources]unstructured.Unstructured)
 
-	return &MoveEngineAction{
+	opt := &MoveEngineAction{
 		log:                log,
 		client:             c,
 		resourcesMap:       resourcesMap,
@@ -114,30 +118,22 @@ func NewMoveEngineAction(log logr.Logger, c client.Client, h helper.Helper) *Mov
 		discoveryHelper:    h,
 		syncedVolMap:       syncedVolume,
 	}
+	if me == nil {
+		return nil, fmt.Errorf("failed to cretate MoveEngine clients. Reason: MoveEngine instance is nil")
+	}
+	// Add remote cluster specific options
+	err := opt.setRemoteOptions(me.Spec.MovePair)
+	if err != nil {
+		return nil, err
+	}
+	return opt, nil
 }
 
 func (m *MoveEngineAction) ParseResourceEngine(mov *v1alpha1.MoveEngine) error {
-	pairObj, err := pair.Get(
-		client.ObjectKey{
-			Namespace: os.Getenv("WATCH_NAMESPACE"),
-			Name:      mov.Spec.MovePair},
-		m.client)
-	if err != nil {
-		m.log.Error(err, "Failed to fetch movePair %v.. %v\n", mov.Spec.MovePair)
-		return err
-	}
-
-	if err := m.updateClient(pairObj); err != nil {
-		return errors.Errorf("Failed to initialize client.. %v", err)
-	}
-
-	m.MEngine = *mov
-
-	err = m.UpdateSyncResourceList()
+	err := m.UpdateSyncResourceList()
 	if err != nil {
 		return err
 	}
-
 	m.resetMultiAPIResources()
 
 	err = m.syncResourceList()
@@ -164,8 +160,17 @@ func convertJSONToUnstructured(data []byte) (unstructured.Unstructured, error) {
 }
 
 //TODO improve error reporting
-func (m *MoveEngineAction) updateClient(mpair *v1alpha1.MovePair) error {
-	var err error
+func (m *MoveEngineAction) setRemoteOptions(mpairName string) error {
+	mpair, err := pair.Get(
+		client.ObjectKey{
+			Namespace: os.Getenv("WATCH_NAMESPACE"),
+			Name:      mpairName,
+		},
+		m.client)
+	if err != nil {
+		m.log.Error(err, "Failed to fetch movePair %v.. %v\n", mpairName)
+		return err
+	}
 
 	if m.dclient, err = pair.FetchDiscoveryClient(); err != nil {
 		return err
@@ -191,6 +196,11 @@ func (m *MoveEngineAction) updateClient(mpair *v1alpha1.MovePair) error {
 	return nil
 }
 
+// SetMoveEngineState set status of the respective MoveEngine CR
+func (m *MoveEngineAction) SetMoveEngineState(state v1alpha1.MoveEngineState) error {
+	return m.UpdateMoveEngineStatus(&v1alpha1.MoveEngineStatus{Status: state}, "")
+}
+
 func (m *MoveEngineAction) UpdateMoveEngineStatus(newStatus *v1alpha1.MoveEngineStatus, ds string) error {
 	lastStatus := m.MEngine.Status
 
@@ -213,7 +223,31 @@ func (m *MoveEngineAction) UpdateMoveEngineStatus(newStatus *v1alpha1.MoveEngine
 	return m.client.Update(context.TODO(), &m.MEngine)
 }
 
-func (m *MoveEngineAction) GetStandbyEngineStatus() (v1alpha1.MoveEngineState, error) {
-	// TODO
-	return v1alpha1.MoveEngineInitialized, nil
+// CreateStandbyMoveEngine creates MoveEngine in the destination cluster with standby mode.
+func (m *MoveEngineAction) CreateStandbyMoveEngine() error {
+	standbyMoveEngine := &v1alpha1.MoveEngine{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      m.MEngine.Name,
+			Namespace: m.MEngine.Spec.RemoteNamespace,
+		},
+		Spec: m.MEngine.Spec,
+	}
+	// MoveEngine in the destination cluster should be in "standby" mode.
+	m.MEngine.Spec.Mode = MoveEngineStandby
+
+	// Create the MoveEngine in the destination cluster
+	return m.remoteClient.Create(context.TODO(), standbyMoveEngine)
+}
+
+// GetStandbyMoveEngineStatus returns the status of standby MoveEngine from remote cluster
+func (m *MoveEngineAction) GetStandbyMoveEngineStatus() (v1alpha1.MoveEngineState, error) {
+	standbyMoveEngine := &v1alpha1.MoveEngine{}
+	key := client.ObjectKey{Name: m.MEngine.Name, Namespace: m.MEngine.Spec.RemoteNamespace}
+
+	// Get the standby MoveEngine from remote cluster
+	err := m.remoteClient.Get(context.TODO(), key, standbyMoveEngine)
+	if err != nil {
+		return "", err
+	}
+	return standbyMoveEngine.Status.Status, nil
 }

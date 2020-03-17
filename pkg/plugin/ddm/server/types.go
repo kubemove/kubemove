@@ -12,7 +12,6 @@ const (
 
 type DDM interface {
 	Init(plugin string, engine v1alpha1.MoveEngine) error
-	InitProgress(plugin string, engine v1alpha1.MoveEngine) (string, error)
 	SyncData(plugin string, ds v1alpha1.DataSync) (string, error)
 	SyncStatus(plugin string, ds v1alpha1.DataSync) (int32, error)
 }
