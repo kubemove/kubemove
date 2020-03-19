@@ -99,15 +99,9 @@ func schema_pkg_apis_kubemove_v1alpha1_DataSyncSpec(ref common.ReferenceCallback
 							Format: "",
 						},
 					},
-					"backup": {
+					"mode": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"boolean"},
-							Format: "",
-						},
-					},
-					"restore": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"boolean"},
+							Type:   []string{"string"},
 							Format: "",
 						},
 					},
@@ -126,7 +120,7 @@ func schema_pkg_apis_kubemove_v1alpha1_DataSyncSpec(ref common.ReferenceCallback
 						},
 					},
 				},
-				Required: []string{"namespace", "plugin", "moveEngine"},
+				Required: []string{"namespace", "plugin", "moveEngine", "mode"},
 			},
 		},
 	}

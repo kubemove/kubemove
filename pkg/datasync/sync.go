@@ -6,18 +6,15 @@ import (
 
 func (d *DataSync) Sync() error {
 	plugin := d.ds.Spec.PluginProvider
-	if d.ds.Status.Status == "Completed" {
-		return nil
-	}
 
-	// Sync
-	// TODO id ignored
 	_, err := d.ddm.SyncData(plugin, *d.ds)
 	if err != nil {
 		return errors.Wrapf(err, "Failed to sync data")
 	}
-
-	// TODO Update CR
-
 	return nil
+}
+
+func (d *DataSync) SyncStatus() (int32, error) {
+	plugin := d.ds.Spec.PluginProvider
+	return d.ddm.SyncStatus(plugin, *d.ds)
 }
