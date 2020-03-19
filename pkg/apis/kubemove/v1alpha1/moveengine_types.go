@@ -53,12 +53,12 @@ type MoveEngineStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html
-	Status         MoveEngineState `json:"Status"`
-	LastStatus     MoveEngineState `json:"LastStatus"`
-	SyncedTime     metav1.Time     `json:"SyncedTime"`
-	LastSyncedTime metav1.Time     `json:"LastSyncedTime"`
-	DataSync       string          `json:"DataSync"`
-	DataSyncStatus string          `json:"DataSyncStatus"`
+	Status         MoveEngineState `json:"status,omitempty"`
+	LastStatus     MoveEngineState `json:"lastStatus,omitempty"`
+	SyncedTime     *metav1.Time    `json:"syncedTime,omitempty"`
+	LastSyncedTime *metav1.Time    `json:"lastSyncedTime,omitempty"`
+	DataSync       string          `json:"dataSync,omitempty"`
+	DataSyncStatus string          `json:"dataSyncStatus,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -66,8 +66,9 @@ type MoveEngineStatus struct {
 // MoveEngine is the Schema for the moveengines API
 // +k8s:openapi-gen=true
 // +kubebuilder:printcolumn:name="Mode",type="string",JSONPath=".spec.mode"
-// +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.Status"
-// +kubebuilder:printcolumn:name="Synced-Time",type="string",JSONPath=".status.SyncedTime"
+// +kubebuilder:printcolumn:name="Sync-Period",type="string",JSONPath=".spec.syncPeriod"
+// +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.status"
+// +kubebuilder:printcolumn:name="Synced-Time",type="date",JSONPath=".status.syncedTime"
 type MoveEngine struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -94,13 +95,13 @@ type VolumeStatus struct {
 	Namespace       string      `json:"namespace"`
 	RemoteNamespace string      `json:"remoteNamespace"`
 	PVC             string      `json:"pvc"`
-	Status          string      `json:"Status"`
-	SyncedTime      metav1.Time `json:"Synced"`
+	Status          string      `json:"status"`
+	SyncedTime      metav1.Time `json:"synced"`
 	LastStatus      string      `json:"lastStatus"`
 	LastSyncedTime  metav1.Time `json:"lastSyncedTime"`
 	Reason          string      `json:"reason"`
-	Volume          string      `json:"Volume"`
-	RemoteVolume    string      `json:"RemoteVolume"`
+	Volume          string      `json:"volume"`
+	RemoteVolume    string      `json:"remoteVolume"`
 }
 
 // ResourceStatus sync status of resource

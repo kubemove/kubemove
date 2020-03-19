@@ -16,9 +16,9 @@ type DataSyncSpec struct {
 	Namespace      string            `json:"namespace"`
 	PluginProvider string            `json:"plugin"`
 	MoveEngine     string            `json:"moveEngine"`
-	Backup         bool              `json:"backup"`
-	Restore        bool              `json:"restore"`
-	Config         map[string]string `json:"config"`
+	Backup         bool              `json:"backup,omitempty"`
+	Restore        bool              `json:"restore,omitempty"`
+	Config         map[string]string `json:"config,omitempty"`
 }
 
 // DataSyncStatus defines the observed state of DataSync
@@ -29,8 +29,8 @@ type DataSyncStatus struct {
 	// Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html
 	Stage          string `json:"stage"`
 	Status         string `json:"status"`
-	CompletionTime string `json:"completionTime"`
-	Reason         string `json:"reason"`
+	CompletionTime string `json:"completionTime,omitempty"`
+	Reason         string `json:"reason,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

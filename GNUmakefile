@@ -13,7 +13,7 @@ GO_VERSION?=1.13.8
 GO_PROTO_VERSION?=v1.3.3
 OPERATOR_SDK_VERSION?=v0.12.0
 
-DEV_IMG      ?= $(REGISTRY)/kubemove-dev:$(GO_VERSION)
+DEV_IMAGE?= $(REGISTRY)/kubemove-dev:$(GO_VERSION)
 BASE_ENGINE_IMG?=$(REGISTRY)/move-base
 ENGINE_IMG?=$(REGISTRY)/move-engine
 PAIR_IMG?=$(REGISTRY)/move-pair
@@ -90,26 +90,28 @@ images: engine-image pair-image datasync-image
 engine-image: base-image engine
 	@echo "Building docker image for kubemove-engine"
 	@docker build -t $(ENGINE_IMG):$(IMG_TAG) -f build/Dockerfile-engine --build-arg BASE_IMG=${BASE_ENGINE_IMG}:${BASE_ENGINE_TAG} ./build
-	@docker push $(ENGINE_IMG):$(IMG_TAG)
 
 pair-image: base-image pair
 	@echo "Building docker image for kubemove-pair"
 	@docker build -t $(PAIR_IMG):$(IMG_TAG) -f build/Dockerfile-pair --build-arg BASE_IMG=${BASE_ENGINE_IMG}:${BASE_ENGINE_TAG}  ./build
-	@docker push $(PAIR_IMG):$(IMG_TAG)
 
 datasync-image: datasync
 	@echo "Building docker image for kubemove-datasync"
 	@docker build -t $(DS_IMG):$(IMG_TAG) -f build/Dockerfile-ds ./build
-	@docker push $(DS_IMG):$(IMG_TAG)
 
 dummy_plugin-image: dummy_plugin
 	@echo "Building docker image for dummy kubemove-plugin"
 	@docker build -t $(PLUGIN_IMG):$(IMG_TAG) -f build/Dockerfile-plugin ./build
-	@docker push $(PLUGIN_IMG):$(IMG_TAG)
 
 base-image:
 	@echo "Building base docker image for kubemove"
 	@docker build -t $(BASE_ENGINE_IMG):$(BASE_ENGINE_TAG) -f build/Dockerfile-base ./build
+
+push-images:
+	@docker push $(ENGINE_IMG):$(IMG_TAG)
+	@docker push $(PAIR_IMG):$(IMG_TAG)
+	@docker push $(DS_IMG):$(IMG_TAG)
+	@docker push $(PLUGIN_IMG):$(IMG_TAG)
 	@docker push $(BASE_ENGINE_IMG):$(BASE_ENGINE_TAG)
 
 .PHONY: gen
@@ -127,7 +129,7 @@ gen-grpc:
 			-w /src                                                 \
 			--env HTTP_PROXY=$(HTTP_PROXY)                          \
 			--env HTTPS_PROXY=$(HTTPS_PROXY)                        \
-			$(DEV_IMG)                                          \
+			$(DEV_IMAGE)                                            \
 			/bin/bash -c "protoc --go_out=plugins=grpc:. pkg/plugin/proto/*.proto"
 	@echo "Successfully generated gRPC codes"
 
@@ -144,7 +146,7 @@ gen-crds: $(BUILD_DIRS)
 			-w /src                                                 \
 			--env HTTP_PROXY=$(HTTP_PROXY)                          \
 			--env HTTPS_PROXY=$(HTTPS_PROXY)                        \
-			$(DEV_IMG)                                          \
+			$(DEV_IMAGE)                                            \
 			/bin/bash -c "operator-sdk generate openapi"
 	@echo "Successfully generated crds"
 
@@ -161,7 +163,7 @@ gen-k8s: $(BUILD_DIRS)
 			-w /src                                                 \
 			--env HTTP_PROXY=$(HTTP_PROXY)                          \
 			--env HTTPS_PROXY=$(HTTPS_PROXY)                        \
-			$(DEV_IMG)                                          \
+			$(DEV_IMAGE)                                            \
 			/bin/bash -c "operator-sdk generate k8s"
 	@echo "Done"
 
@@ -182,7 +184,7 @@ format: $(BUILD_DIRS)
 			--env HTTPS_PROXY=$(HTTPS_PROXY)                        			\
 			--env GO111MODULE=on                                    			\
 			--env GOFLAGS="-mod=vendor"                             			\
-			$(DEV_IMG)                                          			\
+			$(DEV_IMAGE)                                          			    \
 			/bin/sh -c "gofmt -s -w $(PACKAGES)	&& goimports -w $(PACKAGES)"
 	@echo "Done"
 
@@ -203,7 +205,7 @@ lint: $(BUILD_DIRS)
 			--env HTTPS_PROXY=$(HTTPS_PROXY)                        \
 			--env GO111MODULE=on                                    \
 			--env GOFLAGS="-mod=vendor"                             \
-			$(DEV_IMG)                                          \
+			$(DEV_IMAGE)                                            \
 			golangci-lint run                                       \
 			--enable $(ADDITIONAL_LINTERS)                          \
 			--timeout=10m                                           \
@@ -228,7 +230,7 @@ revendor:
 			--env HTTPS_PROXY=$(HTTPS_PROXY)                        \
 			--env GO111MODULE=on                                    \
 			--env GOFLAGS="-mod=vendor"                             \
-			$(DEV_IMG)                                          \
+			$(DEV_IMAGE)                                            \
 			/bin/sh -c "go mod vendor && go mod tidy"
 	@echo "Done"
 
@@ -236,9 +238,9 @@ revendor:
 .PHONY: dev-image
 dev-image:
 	@echo "Building developer image...."
-	@docker build -t $(DEV_IMG) -f build/dev.Dockerfile ./build --no-cache \
-			--build-arg GO_VERSION=$(GO_VERSION)                                   \
-			--build-arg GO_PROTO_VERSION=$(GO_PROTO_VERSION)                       \
+	@docker build -t $(DEV_IMAGE) -f build/dev.Dockerfile ./build --no-cache \
+			--build-arg GO_VERSION=$(GO_VERSION)                             \
+			--build-arg GO_PROTO_VERSION=$(GO_PROTO_VERSION)                 \
 			--build-arg OPERATOR_SDK_VERSION=$(OPERATOR_SDK_VERSION)
 	@echo "Successfully built developer image"
 
@@ -250,7 +252,7 @@ deploy-images:
 	@IMAGE=$(DS_IMG) ./build/push
 	@echo ""
 	@echo "Pushing developer image...."
-	@docker push $(BUILD_IMAGE)
+	@docker push $(DEV_IMAGE)
 
 
 KUBECONFIG?=
@@ -266,6 +268,9 @@ SRC_CLUSTER_IP=$(shell (kubectl get -n kube-system $(SRC_CONTROL_PANE) -o yaml -
 DST_CONTROL_PANE:=$(shell /bin/bash -c "kubectl get pod -n kube-system  -o name --context=$(DST_CONTEXT)| grep kube-apiserver")
 DST_CLUSTER_IP=$(shell (kubectl get -n kube-system $(DST_CONTROL_PANE) -o yaml --context=$(DST_CONTEXT)| grep advertise-address= | cut -c27-))
 
+export MINIO_ACCESS_KEY=not@id
+export MINIO_SECRET_KEY=not@secret
+
 .PHONY: prepare
 prepare:
 	$(eval SRC_CLUSTER_CA:=$(shell (kubectl config view --raw -o=jsonpath='{.clusters[?(@.name=="$(SRC_CONTEXT)")].cluster.certificate-authority-data}')))
@@ -274,6 +279,7 @@ prepare:
 	$(eval DST_CLUSTER_CA:=$(shell (kubectl config view --raw -o=jsonpath='{.clusters[?(@.name=="$(DST_CONTEXT)")].cluster.certificate-authority-data}')))
 	$(eval DST_CLUSTER_CLIENT_CERT:=$(shell (kubectl config view --raw -o=jsonpath='{.users[?(@.name=="$(DST_CONTEXT)")].user.client-certificate-data}')))
 	$(eval DST_CLUSTER_CLIENT_KEY:=$(shell (kubectl config view --raw -o=jsonpath='{.users[?(@.name=="$(DST_CONTEXT)")].user.client-key-data}')))
+	@echo "DEV_IMAGE: $(DEV_IMAGE)"
 	@docker run                                                     \
 			-i                                                      \
 			--rm                                                    \
@@ -300,8 +306,24 @@ prepare:
 			--env DST_CLUSTER_CLIENT_KEY=$(DST_CLUSTER_CLIENT_KEY)  \
 			--env DST_CLUSTER_NAME=$(DST_CONTEXT)                   \
 			--env DST_CLUSTER_IP=$(DST_CLUSTER_IP)                  \
-			$(BUILD_IMAGE)                                          \
+			--env MINIO_ACCESS_KEY=$(MINIO_ACCESS_KEY) 				\
+            --env MINIO_SECRET_KEY=$(MINIO_SECRET_KEY) 				\
+			$(DEV_IMAGE)                                            \
 			/bin/bash -c "                                          \
 				KUBECONFIG=$${KUBECONFIG#$(HOME)}                   \
-				./hack/prepare.sh \
+				./hack/prepare.sh                                   \
 				"
+# Create MoveEngine CR to sync data between two Elasticsearch
+# Example: make stup-sync
+.PHONY: setup-sync
+setup-sync:
+	@echo " "
+	$(eval MINIO_NODEPORT:=$(shell (kubectl get service minio -o yaml --context=$(DST_CONTEXT) | grep nodePort | cut -c15-)))
+	$(eval MINIO_SERVER_ADDRESS:=$(DST_CLUSTER_IP):$(MINIO_NODEPORT))
+
+	@kubectl delete -f examples/resources/moveengine/es-moveengine.yaml --context=$(SRC_CONTEXT) || true
+	@kubectl delete -f examples/resources/moveengine/es-moveengine.yaml --context=$(DST_CONTEXT) || true
+	@echo "Creating MoveEngine CR into the source cluster...."
+	@cat examples/resources/moveengine/es-moveengine.yaml |          \
+		MINIO_SERVER_ADDRESS=$(MINIO_SERVER_ADDRESS)                 \
+		envsubst | kubectl apply -f - --context=$(SRC_CONTEXT)

@@ -31,7 +31,6 @@ import (
 
 const (
 	RetryInterval = 30 * time.Second
-
 )
 
 var log = logf.Log.WithName("controller_moveengine")
@@ -134,9 +133,9 @@ func (r *ReconcileMoveEngine) Reconcile(request reconcile.Request) (reconcile.Re
 	}
 
 	// TODO
-	me,err := engine.NewMoveEngineAction(r.log, r.client, r.discoveryHelper,instance)
-	if err!=nil{
-		return reconcile.Result{},err
+	me, err := engine.NewMoveEngineAction(r.log, r.client, r.discoveryHelper, instance)
+	if err != nil {
+		return reconcile.Result{}, err
 	}
 	if EnableResources {
 		err = me.ParseResourceEngine(instance)
@@ -146,7 +145,8 @@ func (r *ReconcileMoveEngine) Reconcile(request reconcile.Request) (reconcile.Re
 	}
 
 	switch instance.Status.Status {
-	case "": // We haven't invoked the INIT API yet
+	case "":
+		// We haven't invoked the INIT API yet
 		// Set MoveEngine status to "Initializing"
 		err := me.SetMoveEngineState(v1alpha1.MoveEngineInitializing)
 		if err != nil {
@@ -195,10 +195,10 @@ func (r *ReconcileMoveEngine) Reconcile(request reconcile.Request) (reconcile.Re
 				if err != nil {
 					return reconcile.Result{}, err
 				}
-				// MoveEngine is ready. Rest of the process should be based on the new status.
-				// Hence, we are doing a requeue so that ready rest of the process runs at next reconcilation.
-				return reconcile.Result{Requeue: true}, nil
 			}
+			// MoveEngine is ready. Rest of the process should be based on the new status.
+			// Hence, we are doing a requeue so that ready rest of the process runs at next reconcilation.
+			return reconcile.Result{Requeue: true, RequeueAfter: RetryInterval}, nil
 		}
 	case v1alpha1.MoveEngineInitializationFailed:
 		// MoveEngine has failed to be initialized. There is no point of processing further.
@@ -236,7 +236,7 @@ func (r *ReconcileMoveEngine) Reconcile(request reconcile.Request) (reconcile.Re
 		_, nextSyncDelay := getNextDue(cr, me.MEngine, time.Now())
 		return reconcile.Result{Requeue: true, RequeueAfter: nextSyncDelay}, nil
 	default:
-		r.log.Info("Status: %s is invalid for MoveEngine.", instance.Status.Status)
+		r.log.Info(fmt.Sprintf("Status: %s is invalid for MoveEngine.", instance.Status.Status))
 		return reconcile.Result{}, fmt.Errorf("invalid MoveEngine Status")
 	}
 	return reconcile.Result{}, nil

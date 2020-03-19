@@ -14,13 +14,13 @@ kubectl apply -f deploy/rbac.yaml --context=${DST_CLUSTER_NAME}
 
 echo""
 echo "Deploying MovePair controller in the source cluster"
-kubectl apply -f deploy/movepair_controller.yaml --context=${SRC_CLUSTER_NAME}
+cat deploy/movepair_controller.yaml | envsubst | kubectl apply -f - --context=${SRC_CLUSTER_NAME}
 
 echo ""
 echo "Deploying DataSync controller in the source cluster"
-kubectl apply -f deploy/datasync_controller.yaml --context=${SRC_CLUSTER_NAME}
+cat deploy/datasync_controller.yaml | envsubst | kubectl apply -f - --context=${SRC_CLUSTER_NAME}
 echo "Deploying DataSync controller in the destination cluster"
-kubectl apply -f deploy/datasync_controller.yaml --context=${DST_CLUSTER_NAME}
+cat deploy/datasync_controller.yaml | envsubst | kubectl apply -f - --context=${DST_CLUSTER_NAME}
 
 echo ""
 echo "Deploying MoveEngine controller in the source cluster"
@@ -45,6 +45,10 @@ echo "Waiting for all pods of of the source cluster to be ready"
 kubectl wait --for=condition=READY pods --all --timeout=5m --context=${DST_CLUSTER_NAME} || true
 
 echo ""
+echo "Creating MovePair in the source cluster"
+cat examples/resources/movepair/local.yaml | envsubst | kubectl apply -f - --context=${SRC_CLUSTER_NAME}
+
+echo ""
 echo "Creating demo bucket in the  Minio server"
 MINIO_NODEPORT=$(kubectl get service minio -o yaml --context=${DST_CLUSTER_NAME} | grep nodePort | cut -c15-)
 MINIO_SERVER_ADDRESS=${DST_CLUSTER_IP}:${MINIO_NODEPORT}
@@ -52,7 +56,3 @@ MINIO_SERVER_ADDRESS=${DST_CLUSTER_IP}:${MINIO_NODEPORT}
 sleep 60
 mc config host add es-repo http://${MINIO_SERVER_ADDRESS} ${MINIO_ACCESS_KEY} ${MINIO_SECRET_KEY}
 mc mb es-repo/demo
-
-echo ""
-echo "Creating MovePair in the source cluster"
-cat examples/resources/movepair/local.yaml | envsubst | kubectl apply -f - --context=${SRC_CLUSTER_NAME}

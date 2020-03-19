@@ -32,8 +32,8 @@ spec:
       containers:
       - name: move-engine
         # Replace this with the built image name
-        image: $(REGISTRY)/move-engine:ci
-        imagePullPolicy: Always
+        image: ${REGISTRY}/move-engine:ci
+        imagePullPolicy: IfNotPresent
         env:
         - name: WATCH_NAMESPACE
           valueFrom:

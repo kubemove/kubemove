@@ -48,12 +48,9 @@ spec:
             restore:
               type: boolean
           required:
-          - backup
-          - config
           - moveEngine
           - namespace
           - plugin
-          - restore
           type: object
         status:
           description: DataSyncStatus defines the observed state of DataSync
@@ -71,8 +68,6 @@ spec:
             status:
               type: string
           required:
-          - completionTime
-          - reason
           - stage
           - status
           type: object

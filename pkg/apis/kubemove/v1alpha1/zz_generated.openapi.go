@@ -126,7 +126,7 @@ func schema_pkg_apis_kubemove_v1alpha1_DataSyncSpec(ref common.ReferenceCallback
 						},
 					},
 				},
-				Required: []string{"namespace", "plugin", "moveEngine", "backup", "restore", "config"},
+				Required: []string{"namespace", "plugin", "moveEngine"},
 			},
 		},
 	}
@@ -165,7 +165,7 @@ func schema_pkg_apis_kubemove_v1alpha1_DataSyncStatus(ref common.ReferenceCallba
 						},
 					},
 				},
-				Required: []string{"stage", "status", "completionTime", "reason"},
+				Required: []string{"stage", "status"},
 			},
 		},
 	}
@@ -286,43 +286,42 @@ func schema_pkg_apis_kubemove_v1alpha1_MoveEngineStatus(ref common.ReferenceCall
 				Description: "MoveEngineStatus defines the observed state of MoveEngine",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"Status": {
+					"status": {
 						SchemaProps: spec.SchemaProps{
 							Description: "INSERT ADDITIONAL STATUS FIELD - define observed state of cluster Important: Run \"operator-sdk generate k8s\" to regenerate code after modifying this file Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
-					"LastStatus": {
+					"lastStatus": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
 						},
 					},
-					"SyncedTime": {
+					"syncedTime": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
 						},
 					},
-					"LastSyncedTime": {
+					"lastSyncedTime": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
 						},
 					},
-					"DataSync": {
+					"dataSync": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
 						},
 					},
-					"DataSyncStatus": {
+					"dataSyncStatus": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
 						},
 					},
 				},
-				Required: []string{"Status", "LastStatus", "SyncedTime", "LastSyncedTime", "DataSync", "DataSyncStatus"},
 			},
 		},
 		Dependencies: []string{

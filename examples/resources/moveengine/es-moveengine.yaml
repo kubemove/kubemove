@@ -2,11 +2,12 @@ apiVersion: kubemove.io/v1alpha1
 kind: MoveEngine
 metadata:
   name: sample-es-move
+  namespace: kubemove
 spec:
   movePair: local
-  namespace: kubesystem
-  remoteNamespace: kubesystem
-  syncPeriod: "3 * * * *"
+  namespace: kubemove
+  remoteNamespace: kubemove
+  syncPeriod: "*/3 * * * *"
   plugin: elasticsearch-plugin
   includeResources: false
   mode: active

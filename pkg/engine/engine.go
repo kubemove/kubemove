@@ -7,6 +7,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/go-logr/logr"
 	"github.com/kubemove/kubemove/pkg/apis/kubemove/v1alpha1"
 	pair "github.com/kubemove/kubemove/pkg/pair"
@@ -117,6 +119,7 @@ func NewMoveEngineAction(log logr.Logger, c client.Client, h helper.Helper, me *
 		syncedResourceMap:  syncedMap,
 		discoveryHelper:    h,
 		syncedVolMap:       syncedVolume,
+		MEngine:            *me,
 	}
 	if me == nil {
 		return nil, fmt.Errorf("failed to cretate MoveEngine clients. Reason: MoveEngine instance is nil")
@@ -132,10 +135,16 @@ func NewMoveEngineAction(log logr.Logger, c client.Client, h helper.Helper, me *
 }
 
 func (m *MoveEngineAction) ParseResourceEngine(mov *v1alpha1.MoveEngine) error {
+	if err := m.setRemoteOptions(mov.Spec.MovePair); err != nil {
+		return errors.Errorf("Failed to initialize client.. %v", err)
+	}
+	m.MEngine = *mov
+
 	err := m.UpdateSyncResourceList()
 	if err != nil {
 		return err
 	}
+
 	m.resetMultiAPIResources()
 
 	err = m.syncResourceList()
@@ -175,24 +184,29 @@ func (m *MoveEngineAction) setRemoteOptions(mpairName string) error {
 	}
 
 	if m.dclient, err = pair.FetchDiscoveryClient(); err != nil {
+		m.log.Error(err, "Failed to fetch DiscoveryClient")
 		return err
 	}
 
 	if m.remoteClient, err = pair.FetchPairClient(mpair); err != nil {
+		m.log.Error(err, "Failed to fetch PairClient")
 		return err
 	}
 
 	if m.remotedClient, err = pair.FetchPairDiscoveryClient(mpair); err != nil {
+		m.log.Error(err, "Failed to fetch PairDiscoveryClient")
 		return err
 	}
 
 	rgr, err := restmapper.GetAPIGroupResources(m.remotedClient)
 	if err != nil {
+		m.log.Error(err, "Failed to get APIGroupResources")
 		return err
 	}
 	m.remoteMapper = restmapper.NewDiscoveryRESTMapper(rgr)
 
 	if m.remotedyClient, err = pair.FetchPairDynamicClient(mpair); err != nil {
+		m.log.Error(err, "Failed to fetch PairDynamicClient")
 		return err
 	}
 	return nil
@@ -219,7 +233,7 @@ func (m *MoveEngineAction) UpdateMoveEngineStatus(newStatus *v1alpha1.MoveEngine
 		// Update the latest DataSync CR name
 		m.MEngine.Status.DataSync = ds
 		// Update Sync time
-		m.MEngine.Status.SyncedTime = metav1.Time{Time: time.Now()}
+		m.MEngine.Status.SyncedTime = &metav1.Time{Time: time.Now()}
 		m.MEngine.Status.LastSyncedTime = lastStatus.SyncedTime
 	}
 	return m.client.Update(context.TODO(), &m.MEngine)
@@ -235,7 +249,7 @@ func (m *MoveEngineAction) CreateStandbyMoveEngine() error {
 		Spec: m.MEngine.Spec,
 	}
 	// MoveEngine in the destination cluster should be in "standby" mode.
-	m.MEngine.Spec.Mode = MoveEngineStandby
+	standbyMoveEngine.Spec.Mode = MoveEngineStandby
 
 	// Create the MoveEngine in the destination cluster
 	return m.remoteClient.Create(context.TODO(), standbyMoveEngine)
