@@ -69,6 +69,7 @@ spec:
           description: DataSyncStatus defines the observed state of DataSync
           properties:
             completionTime:
+              format: date-time
               type: string
             reason:
               type: string

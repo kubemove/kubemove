@@ -47,6 +47,15 @@ const (
 	MoveEngineInvalid              MoveEngineState = "Invalid"
 )
 
+type DataSyncPhase string
+
+const (
+	SyncPhaseRunning   DataSyncPhase = "Running"
+	SyncPhaseCompleted DataSyncPhase = "Completed"
+	SyncPhaseFailed    DataSyncPhase = "Failed"
+	SyncPhaseSynced    DataSyncPhase = "Synced"
+)
+
 // MoveEngineStatus defines the observed state of MoveEngine
 // +k8s:openapi-gen=true
 type MoveEngineStatus struct {
@@ -58,7 +67,7 @@ type MoveEngineStatus struct {
 	SyncedTime     *metav1.Time    `json:"syncedTime,omitempty"`
 	LastSyncedTime *metav1.Time    `json:"lastSyncedTime,omitempty"`
 	DataSync       string          `json:"dataSync,omitempty"`
-	DataSyncStatus string          `json:"dataSyncStatus,omitempty"`
+	DataSyncStatus DataSyncPhase   `json:"dataSyncStatus,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -68,6 +77,8 @@ type MoveEngineStatus struct {
 // +kubebuilder:printcolumn:name="Mode",type="string",JSONPath=".spec.mode"
 // +kubebuilder:printcolumn:name="Sync-Period",type="string",JSONPath=".spec.syncPeriod"
 // +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.status"
+// +kubebuilder:printcolumn:name="Data-Sync",type="string",JSONPath=".status.dataSync"
+// +kubebuilder:printcolumn:name="Sync-Status",type="string",JSONPath=".status.dataSyncStatus"
 // +kubebuilder:printcolumn:name="Synced-Time",type="date",JSONPath=".status.syncedTime"
 type MoveEngine struct {
 	metav1.TypeMeta   `json:",inline"`

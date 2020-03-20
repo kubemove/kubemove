@@ -148,8 +148,7 @@ func schema_pkg_apis_kubemove_v1alpha1_DataSyncStatus(ref common.ReferenceCallba
 					},
 					"completionTime": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
 						},
 					},
 					"reason": {
@@ -162,6 +161,8 @@ func schema_pkg_apis_kubemove_v1alpha1_DataSyncStatus(ref common.ReferenceCallba
 				Required: []string{"stage", "status"},
 			},
 		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
 	}
 }
 

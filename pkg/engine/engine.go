@@ -5,13 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"time"
-
-	"github.com/pkg/errors"
 
 	"github.com/go-logr/logr"
 	"github.com/kubemove/kubemove/pkg/apis/kubemove/v1alpha1"
 	pair "github.com/kubemove/kubemove/pkg/pair"
+	"github.com/pkg/errors"
 	helper "github.com/vmware-tanzu/velero/pkg/discovery"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -214,29 +212,84 @@ func (m *MoveEngineAction) setRemoteOptions(mpairName string) error {
 
 // SetMoveEngineState set status of the respective MoveEngine CR
 func (m *MoveEngineAction) SetMoveEngineState(state v1alpha1.MoveEngineState) error {
-	return m.UpdateMoveEngineStatus(&v1alpha1.MoveEngineStatus{Status: state}, "")
+	return m.UpdateMoveEngineStatus(&v1alpha1.MoveEngineStatus{Status: state})
 }
 
-func (m *MoveEngineAction) UpdateMoveEngineStatus(newStatus *v1alpha1.MoveEngineStatus, ds string) error {
-	lastStatus := m.MEngine.Status
-
-	// If status has been updated, then set the new status and update lastStatus accordingly
-	if newStatus != nil &&
-		newStatus.Status != "" &&
-		newStatus.Status != lastStatus.Status {
-		m.MEngine.Status.Status = newStatus.Status
-		m.MEngine.Status.LastStatus = lastStatus.Status
+func (m *MoveEngineAction) UpdateMoveEngineStatus(newStatus *v1alpha1.MoveEngineStatus) error {
+	if newStatus == nil {
+		return fmt.Errorf("failed to update MoveEngine %s/%s Status. Reason: newStatus is nil", m.MEngine.Namespace, m.MEngine.Name)
 	}
 
-	// If a new sync schedule has appeared, then set the synced time and update last syncTime accordingly
-	if ds != "" {
-		// Update the latest DataSync CR name
-		m.MEngine.Status.DataSync = ds
-		// Update Sync time
-		m.MEngine.Status.SyncedTime = &metav1.Time{Time: time.Now()}
-		m.MEngine.Status.LastSyncedTime = lastStatus.SyncedTime
+	if newStatus.Status != "" && newStatus.Status != m.MEngine.Status.Status {
+		m.MEngine.Status.LastStatus = m.MEngine.Status.Status
+		m.MEngine.Status.Status = newStatus.Status
+	}
+
+	if newStatus.SyncedTime != nil {
+		m.MEngine.Status.LastSyncedTime = m.MEngine.Status.SyncedTime
+		m.MEngine.Status.SyncedTime = newStatus.SyncedTime
+	}
+
+	if newStatus.DataSync != "" {
+		m.MEngine.Status.DataSync = newStatus.DataSync
+	}
+
+	if newStatus.DataSyncStatus != "" && newStatus.DataSyncStatus != m.MEngine.Status.DataSyncStatus {
+		m.MEngine.Status.DataSyncStatus = newStatus.DataSyncStatus
 	}
 	return m.client.Update(context.TODO(), &m.MEngine)
+}
+
+func (m *MoveEngineAction) UpdateStandbyMoveEngineStatus(newStatus *v1alpha1.MoveEngineStatus) error {
+	if newStatus == nil {
+		return fmt.Errorf("failed to update MoveEngine %s/%s Status. Reason: newStatus is nil", m.MEngine.Namespace, m.MEngine.Name)
+	}
+
+	standbyMoveEngine, err := m.getStandbyMoveEngine()
+	if err != nil {
+		return err
+	}
+
+	if newStatus.Status != "" && newStatus.Status != standbyMoveEngine.Status.Status {
+		standbyMoveEngine.Status.LastStatus = standbyMoveEngine.Status.Status
+		standbyMoveEngine.Status.Status = newStatus.Status
+	}
+
+	if newStatus.SyncedTime != nil {
+		standbyMoveEngine.Status.LastSyncedTime = standbyMoveEngine.Status.SyncedTime
+		standbyMoveEngine.Status.SyncedTime = newStatus.SyncedTime
+	}
+
+	if newStatus.DataSync != "" {
+		standbyMoveEngine.Status.DataSync = newStatus.DataSync
+	}
+
+	if newStatus.DataSyncStatus != "" && newStatus.DataSyncStatus != standbyMoveEngine.Status.DataSyncStatus {
+		standbyMoveEngine.Status.DataSyncStatus = newStatus.DataSyncStatus
+	}
+	return m.remoteClient.Update(context.TODO(), standbyMoveEngine)
+}
+
+func (m *MoveEngineAction) SyncDataSyncStatus() (bool, error) {
+	ds, err := GetDataSync(m.client, m.MEngine.Status.DataSync, m.MEngine.Namespace)
+	if err != nil {
+		return false, err
+	}
+
+	requeue := false
+	var syncStatus v1alpha1.DataSyncPhase
+	switch ds.Status.Status {
+	case v1alpha1.SyncStateRunning:
+		syncStatus = v1alpha1.SyncPhaseRunning
+		requeue = true
+	case v1alpha1.SyncStateCompleted:
+		syncStatus = v1alpha1.SyncPhaseCompleted
+	case v1alpha1.SyncStateFailed:
+		syncStatus = v1alpha1.SyncPhaseFailed
+	default:
+		return requeue, fmt.Errorf("invalid DataSync Status for DataSync: %s/%s", ds.Namespace, ds.Name)
+	}
+	return requeue, m.UpdateMoveEngineStatus(&v1alpha1.MoveEngineStatus{DataSyncStatus: syncStatus})
 }
 
 // CreateStandbyMoveEngine creates MoveEngine in the destination cluster with standby mode.
@@ -256,14 +309,22 @@ func (m *MoveEngineAction) CreateStandbyMoveEngine() error {
 }
 
 // GetStandbyMoveEngineStatus returns the status of standby MoveEngine from remote cluster
-func (m *MoveEngineAction) GetStandbyMoveEngineStatus() (v1alpha1.MoveEngineState, error) {
+func (m *MoveEngineAction) GetStandbyMoveEngineStatus() (v1alpha1.MoveEngineStatus, error) {
+	standbyMoveEngine, err := m.getStandbyMoveEngine()
+	if err != nil {
+		return v1alpha1.MoveEngineStatus{}, err
+	}
+	return standbyMoveEngine.Status, nil
+}
+
+func (m *MoveEngineAction) getStandbyMoveEngine() (*v1alpha1.MoveEngine, error) {
 	standbyMoveEngine := &v1alpha1.MoveEngine{}
 	key := client.ObjectKey{Name: m.MEngine.Name, Namespace: m.MEngine.Spec.RemoteNamespace}
 
 	// Get the standby MoveEngine from remote cluster
 	err := m.remoteClient.Get(context.TODO(), key, standbyMoveEngine)
 	if err != nil {
-		return "", err
+		return standbyMoveEngine, err
 	}
-	return standbyMoveEngine.Status.Status, nil
+	return standbyMoveEngine, nil
 }

@@ -23,7 +23,7 @@ import (
 )
 
 const (
-	RetryInterval = 30 * time.Second
+	RetryInterval = 5 * time.Second
 )
 
 var log = logf.Log.WithName("controller_datasync")

@@ -13,6 +13,12 @@ spec:
   - JSONPath: .status.status
     name: Status
     type: string
+  - JSONPath: .status.dataSync
+    name: Data-Sync
+    type: string
+  - JSONPath: .status.dataSyncStatus
+    name: Sync-Status
+    type: string
   - JSONPath: .status.syncedTime
     name: Synced-Time
     type: date

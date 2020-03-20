@@ -315,15 +315,16 @@ prepare:
 				"
 # Create MoveEngine CR to sync data between two Elasticsearch
 # Example: make stup-sync
-.PHONY: setup-sync
-setup-sync:
+.PHONY: setup-es-sync
+setup-es-sync:
 	@echo " "
 	$(eval MINIO_NODEPORT:=$(shell (kubectl get service minio -o yaml --context=$(DST_CONTEXT) | grep nodePort | cut -c15-)))
 	$(eval MINIO_SERVER_ADDRESS:=$(DST_CLUSTER_IP):$(MINIO_NODEPORT))
-
-	@kubectl delete -f examples/resources/moveengine/es-moveengine.yaml --context=$(SRC_CONTEXT) || true
-	@kubectl delete -f examples/resources/moveengine/es-moveengine.yaml --context=$(DST_CONTEXT) || true
 	@echo "Creating MoveEngine CR into the source cluster...."
 	@cat examples/resources/moveengine/es-moveengine.yaml |          \
 		MINIO_SERVER_ADDRESS=$(MINIO_SERVER_ADDRESS)                 \
 		envsubst | kubectl apply -f - --context=$(SRC_CONTEXT)
+.PHONY: remove-es-sync
+remove-es-sync:
+	@kubectl delete -f examples/resources/moveengine/es-moveengine.yaml --context=$(SRC_CONTEXT) || true
+	@kubectl delete -f examples/resources/moveengine/es-moveengine.yaml --context=$(DST_CONTEXT) || true

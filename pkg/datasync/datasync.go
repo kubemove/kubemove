@@ -4,6 +4,8 @@ import (
 	"context"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/go-logr/logr"
 	"github.com/kubemove/kubemove/pkg/apis/kubemove/v1alpha1"
 	server "github.com/kubemove/kubemove/pkg/plugin/ddm/server"
@@ -45,7 +47,7 @@ func (d *DataSync) UpdateDataSyncStatus(state v1alpha1.SyncState, failureReason 
 	d.ds.Status.Status = state
 	// if sync is completed, set the completion time
 	if state == v1alpha1.SyncStateCompleted {
-		d.ds.Status.CompletionTime = time.Now().String()
+		d.ds.Status.CompletionTime = &metav1.Time{Time: time.Now()}
 	}
 	// if sync has failed, set the respective failure reason
 	if state == v1alpha1.SyncStateFailed {
