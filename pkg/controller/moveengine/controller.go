@@ -300,14 +300,14 @@ func (r *ReconcileMoveEngine) ensureNextSync(me *engine.MoveEngineAction) (bool,
 		return false, time.Second, err
 	}
 	// Add the newly created DataSync CR name in the MoveEngine status.
-	err = me.UpdateMoveEngineStatus(&v1alpha1.MoveEngineStatus{DataSync: dsName,DataSyncStatus: v1alpha1.SyncPhaseRunning})
+	err = me.UpdateMoveEngineStatus(&v1alpha1.MoveEngineStatus{DataSync: dsName, DataSyncStatus: v1alpha1.SyncPhaseRunning})
 	if err != nil {
 		r.log.Error(err, "Failed to update status")
 		return false, time.Second, err
 	}
 
 	// Also, add the newly created DataSync CR name in the standby MoveEngine status.
-	err = me.UpdateStandbyMoveEngineStatus(&v1alpha1.MoveEngineStatus{DataSync: dsName,DataSyncStatus: v1alpha1.SyncPhaseRunning})
+	err = me.UpdateStandbyMoveEngineStatus(&v1alpha1.MoveEngineStatus{DataSync: dsName, DataSyncStatus: v1alpha1.SyncPhaseRunning})
 	if err != nil {
 		r.log.Error(err, "Failed to update status of standby MoveEngine")
 		return false, time.Second, err

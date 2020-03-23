@@ -271,6 +271,8 @@ DST_CLUSTER_IP=$(shell (kubectl get -n kube-system $(DST_CONTROL_PANE) -o yaml -
 export MINIO_ACCESS_KEY=not@id
 export MINIO_SECRET_KEY=not@secret
 
+# Install necessary Kubemove resources
+# Example: make prepare REGISTRY=<your docker registry>
 .PHONY: prepare
 prepare:
 	$(eval SRC_CLUSTER_CA:=$(shell (kubectl config view --raw -o=jsonpath='{.clusters[?(@.name=="$(SRC_CONTEXT)")].cluster.certificate-authority-data}')))
@@ -313,8 +315,40 @@ prepare:
 				KUBECONFIG=$${KUBECONFIG#$(HOME)}                   \
 				./hack/prepare.sh                                   \
 				"
+	@echo "Done"
+
+# Remove all kubemove resources from the source and destination clusters
+# Example: make reset
+.PHONY: reset
+reset:
+	@echo "Removing all Kubemove resources from the source and destination clusters...."
+	@docker run                                                     \
+			-i                                                      \
+			--rm                                                    \
+			--net=host                                              \
+			-u $$(id -u):$$(id -g)                                  \
+			-v $$(pwd):/go/src/$(MODULE)                            \
+			-v $$(pwd)/.go/cache:/.cache                            \
+			-v $(HOME)/.kube:/.kube                                 \
+			-v /tmp:/.mc											\
+			-w /go/src/$(MODULE)                                    \
+			--env HTTP_PROXY=$(HTTP_PROXY)                          \
+			--env HTTPS_PROXY=$(HTTPS_PROXY)                        \
+			--env KUBECONFIG=$(KUBECONFIG)                          \
+			--env GO111MODULE=on                                    \
+			--env GOFLAGS="-mod=vendor"                             \
+			--env REGISTRY=$(REGISTRY)                              \
+			--env SRC_CLUSTER_NAME=$(SRC_CONTEXT)                   \
+			--env DST_CLUSTER_NAME=$(DST_CONTEXT)                   \
+			$(DEV_IMAGE)                                            \
+			/bin/bash -c "                                          \
+				KUBECONFIG=$${KUBECONFIG#$(HOME)}                   \
+				./hack/reset.sh                                   \
+				"
+	@echo "Done"
+
 # Create MoveEngine CR to sync data between two Elasticsearch
-# Example: make stup-sync
+# Example: make stup-es-sync
 .PHONY: setup-es-sync
 setup-es-sync:
 	@echo " "
@@ -324,6 +358,9 @@ setup-es-sync:
 	@cat examples/resources/moveengine/es-moveengine.yaml |          \
 		MINIO_SERVER_ADDRESS=$(MINIO_SERVER_ADDRESS)                 \
 		envsubst | kubectl apply -f - --context=$(SRC_CONTEXT)
+	@echo "Done"
+# Delete MoveEngine CR
+# Example: make remove-es-sync
 .PHONY: remove-es-sync
 remove-es-sync:
 	@kubectl delete -f examples/resources/moveengine/es-moveengine.yaml --context=$(SRC_CONTEXT) || true
