@@ -19,6 +19,9 @@ import (
 
 //TODO
 // new package for status
+const (
+	ResourcePhaseSynced string = "Synced"
+)
 
 //TODO
 var PVCWaitTime = 5 * time.Second
@@ -46,7 +49,7 @@ func (m *MoveEngineAction) updateSyncStatus(obj unstructured.Unstructured) {
 	)
 
 	rs = newResourceStatus(obj)
-	rs.Phase = "Synced"
+	rs.Phase = ResourcePhaseSynced
 
 	kind := strings.ToLower(obj.GetKind())
 	fn, ok := statusAction[kind]
@@ -79,13 +82,12 @@ func (m *MoveEngineAction) updateSyncStatus(obj unstructured.Unstructured) {
 	if kind != "persistentvolume" {
 		m.addToSyncedResourceList(obj, *rs)
 	}
-	return
 }
 
 func deploymentStatus(m *MoveEngineAction, obj unstructured.Unstructured) interface{} {
 	deploy := new(appsv1.Deployment)
 	rs := newResourceStatus(obj)
-	rs.Phase = "Synced"
+	rs.Phase = ResourcePhaseSynced
 
 	newObj, err := fetchRemoteResourceFromObj(m.remoteClient, obj)
 	if err == nil {
@@ -151,7 +153,7 @@ func pvcStatus(m *MoveEngineAction, obj unstructured.Unstructured) interface{} {
 	pvc := new(v1.PersistentVolumeClaim)
 
 	rs := newResourceStatus(obj)
-	rs.Phase = "Synced"
+	rs.Phase = ResourcePhaseSynced
 
 	_ = wait.PollImmediate(PVCWaitInterval, PVCWaitTime, func() (bool, error) {
 		newObj, err := fetchRemoteResourceFromObj(m.remoteClient, obj)
@@ -196,7 +198,7 @@ func pvcStatus(m *MoveEngineAction, obj unstructured.Unstructured) interface{} {
 func nsStatus(m *MoveEngineAction, obj unstructured.Unstructured) interface{} {
 	ns := new(v1.Namespace)
 	rs := newResourceStatus(obj)
-	rs.Phase = "Synced"
+	rs.Phase = ResourcePhaseSynced
 
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.UnstructuredContent(), ns); err == nil {
 		rs.Status = string(ns.Status.Phase)

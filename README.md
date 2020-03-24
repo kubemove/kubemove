@@ -112,7 +112,7 @@ make images
 
 - Push docker images
 ```bash
-make push-images
+make deploy-images
 ```
 
 ## Deploy Kubemove
@@ -127,46 +127,36 @@ export DST_CONTEXT=<destination cluster context>
 
 - Register the Kubemove CRDs
 ```bash
-make register-crds
+make register_crds
 ```
 - Create the RBAC resources
 ```bash
-make create-rbac-resources
+make create_rbac_resources
 ```
 
 - Deploy MovePair controller
 ```bash
-make deploy-mp-ctrl
+make deploy_mp_ctrl
 ```
 
 - Deploy MoveEngine controller
 ```bash
-make deploy-me-ctrl
+make deploy_me_ctrl
 ```
 
 - Deploy DataSync controller
 ```bash
-make deploy-ds-ctrl
+make deploy_ds_ctrl
 ```
 
-- Deploy a Minio Server
+You can also install all the Kubemove resources by using the following command:
 ```bash
-make deploy-minio
-```
-
-- Create a bucket in the Minio server
-```bash
-make create-minio-bucket BUCKET_NAME=<your bucket name>
-```
-
-You can also perform all the previous actions only by using the following command:
-```bash
-make prepare
+make deploy_kubemove
 ```
 
 If you are using two local kind cluster, you can create a MovePair using the following command:
 ```bash
-make create-local-mp
+make create_local_mp
 ```
 
 ## Removing Kubemove
@@ -174,13 +164,13 @@ make create-local-mp
 You can uninstall/remove all Kubemove resources created in the deploy section just by replacing
 `deploy`,`create`, or `register` word of the respective command with `remove`. For example:
 ```bash
-make remove-mp-ctrl
+make remove_mp_ctrl
 ```
 
 Alternatively, you can use the following command to remove all the Kubemove resources created in the clusters using
 the following command,
 ```bash
-make reset
+make purge_kubemove
 ```
 
 # License

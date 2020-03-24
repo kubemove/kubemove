@@ -22,13 +22,20 @@ type MovePairSpec struct {
 	Config clientcmdapi.Config `json:"config"`
 }
 
+type PairState string
+
+const (
+	PairStateErrored    PairState = "Errored"
+	PairStateConnection PairState = "Connected"
+)
+
 // MovePairStatus defines the observed state of MovePair
 // +k8s:openapi-gen=true
 type MovePairStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html
-	State string `json:"state"`
+	State PairState `json:"state"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

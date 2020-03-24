@@ -10,7 +10,7 @@ import (
 	"github.com/kubemove/kubemove/pkg/apis/kubemove/v1alpha1"
 	server "github.com/kubemove/kubemove/pkg/plugin/ddm/server"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 type DataSync struct {

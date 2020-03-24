@@ -12,9 +12,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
@@ -105,27 +105,27 @@ func (r *ReconcileMovePair) Reconcile(request reconcile.Request) (reconcile.Resu
 	return reconcile.Result{}, nil
 }
 
-func (r *ReconcileMovePair) verifyMovePairStatus(mpair *kubemovev1alpha1.MovePair) (string, error) {
+func (r *ReconcileMovePair) verifyMovePairStatus(mpair *kubemovev1alpha1.MovePair) (kubemovev1alpha1.PairState, error) {
 	err := kmpair.Validate(mpair)
 	if err != nil {
-		return "Errored", err
+		return kubemovev1alpha1.PairStateErrored, err
 	}
 
 	dclient, err := kmpair.FetchPairDiscoveryClient(mpair)
 	if err != nil {
-		return "Errored", err
+		return kubemovev1alpha1.PairStateErrored, err
 	}
 
 	// To verify access, let's fetch remote server version
 	_, err = dclient.ServerVersion()
 	if err != nil {
-		return "Errored", err
+		return kubemovev1alpha1.PairStateErrored, err
 	}
-	return "Connected", nil
+	return kubemovev1alpha1.PairStateConnection, nil
 }
 
 // update movePair status
-func (r *ReconcileMovePair) updateStatus(mpair *kubemovev1alpha1.MovePair, status string) error {
+func (r *ReconcileMovePair) updateStatus(mpair *kubemovev1alpha1.MovePair, status kubemovev1alpha1.PairState) error {
 	mpair.Status.State = status
 	return r.client.Update(context.TODO(), mpair)
 }

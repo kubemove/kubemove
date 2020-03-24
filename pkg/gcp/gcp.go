@@ -35,7 +35,7 @@ func AuthServiceAccount() error {
 			strings.Join(append([]string{gcloudPath}, args...), " "),
 			err,
 			output,
-			string(stderr.Bytes()))
+			stderr.String())
 	}
 	return nil
 }

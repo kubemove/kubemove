@@ -31,6 +31,7 @@ func (m *MoveEngineAction) addToResourceList(obj unstructured.Unstructured) {
 	m.resourceList = append(m.resourceList, obj)
 }
 
+//nolint:unparam
 func (m *MoveEngineAction) getFromResourceList(sr MResources) (unstructured.Unstructured, bool) {
 	gv, _ := schema.ParseGroupVersion(sr.APIVersion)
 	gvr := schema.GroupVersionResource{

@@ -26,18 +26,6 @@ BUILD_DIRS:= build/_output \
 # directory where the go build output will go
 BIN_DIR:=build/_output/bin
 
-# Use IMAGE_TAG to <branch-name>-<commit-hash> to make sure that
-# one dev don't overwrite another's image in the docker registry
-git_branch       := $(shell git rev-parse --abbrev-ref HEAD)
-git_tag          := $(shell git describe --exact-match --abbrev=0 2>/dev/null || echo "")
-commit_hash      := $(shell git rev-parse --verify --short HEAD)
-
-ifdef git_tag
-	IMAGE_TAG = $(git_tag)
-else
-	IMAGE_TAG = $(git_branch)-$(commit_hash)
-endif
-
 all: datasync engine pair dummy_plugin
 
 .PHONY: bootstrap
@@ -46,10 +34,6 @@ bootstrap:
 
 vet:
 	go vet ${PACKAGES}
-
-golint:
-	@gometalinter.v1 --install
-	@gometalinter.v1 --vendor --disable-all -E errcheck -E misspell ./...
 
 $(BUILD_DIRS):
 	@mkdir -p $@
@@ -106,13 +90,6 @@ dummy_plugin-image: dummy_plugin
 base-image:
 	@echo "Building base docker image for kubemove"
 	@docker build -t $(BASE_ENGINE_IMG):$(BASE_ENGINE_TAG) -f build/Dockerfile-base ./build
-
-push-images:
-	@docker push $(ENGINE_IMG):$(IMG_TAG)
-	@docker push $(PAIR_IMG):$(IMG_TAG)
-	@docker push $(DS_IMG):$(IMG_TAG)
-	@docker push $(PLUGIN_IMG):$(IMG_TAG)
-	@docker push $(BASE_ENGINE_IMG):$(BASE_ENGINE_TAG)
 
 .PHONY: gen
 gen: gen-crds gen-k8s gen-grpc
@@ -190,7 +167,7 @@ format: $(BUILD_DIRS)
 
 # Run linter
 # Example: make lint REGISTRY=<your docker registry>
-ADDITIONAL_LINTERS   := goconst,gofmt,goimports,unparam
+ADDITIONAL_LINTERS   := goconst,gofmt,goimports,unparam,misspell
 .PHONY: lint
 lint: $(BUILD_DIRS)
 	@echo "Running go lint....."
@@ -250,13 +227,8 @@ deploy-images:
 	@IMAGE=$(ENGINE_IMG) ./build/push
 	@IMAGE=$(PAIR_IMG) ./build/push
 	@IMAGE=$(DS_IMG) ./build/push
-	@echo ""
-	@echo "Pushing developer image...."
-	@docker push $(DEV_IMAGE)
-
 
 KUBECONFIG?=
-INTERNAL_CONFIG:=$(KUBECONFIG:$(HOME)%=%)
 
 SRC_CONTEXT?=kind-src-cluster
 DST_CONTEXT?=kind-dst-cluster
@@ -269,279 +241,100 @@ SRC_CLUSTER_IP=$(shell (kubectl get -n kube-system $(SRC_CONTROL_PANE) -o yaml -
 DST_CONTROL_PANE:=$(shell /bin/bash -c "kubectl get pod -n kube-system  -o name --context=$(DST_CONTEXT)| grep kube-apiserver")
 DST_CLUSTER_IP=$(shell (kubectl get -n kube-system $(DST_CONTROL_PANE) -o yaml --context=$(DST_CONTEXT)| grep advertise-address= | cut -c27-))
 
-export MINIO_ACCESS_KEY=not@id
-export MINIO_SECRET_KEY=not@secret
-
 # Register the Kubemove crds in both source and destination cluster
-# Example: make register-crds SRC_CONTEXT=<source context> DST_CONTEXT=<destination context>
-.PHONY: register-crds
-register-crds:
+# Example: make register_crds
+.PHONY: register_crds
+register_crds:
 	@echo "Registering the CRDs in both source and destination clusters...."
-	@docker run                                                          \
-			-i                                                           \
-			--rm                                                         \
-			--net=host                                                   \
-			-u $$(id -u):$$(id -g)                                       \
-			-v $$(pwd):/go/src/$(MODULE)                                 \
-			-v $$(pwd)/.go/cache:/.cache                                 \
-			-v $(HOME)/.kube:/.kube                                      \
-			-w /go/src/$(MODULE)                                         \
-			--env HTTP_PROXY=$(HTTP_PROXY)                               \
-			--env HTTPS_PROXY=$(HTTPS_PROXY)                             \
-			--env GO111MODULE=on                                         \
-			--env GOFLAGS="-mod=vendor"                                  \
-			--env KUBECONFIG=$(INTERNAL_CONFIG)                          \
-			$(DEV_IMAGE)                                                 \
-			/bin/bash -c '                                               \
-				kubectl apply -f deploy/crds --context=$(SRC_CONTEXT) && \
-				kubectl apply -f deploy/crds --context=$(DST_CONTEXT)    \
-			'
+	@kubectl apply -f deploy/crds --context=$(SRC_CONTEXT)
+	kubectl apply -f deploy/crds --context=$(DST_CONTEXT)
 	@echo "Done"
 
 # Remove the Kubemove crds from both source and destination cluster
-# Example: make remove-crds SRC_CONTEXT=<source context> DST_CONTEXT=<destination context>
-.PHONY: remove-crds
-remove-crds:
+# Example: make remove_crds
+.PHONY: remove_crds
+remove_crds:
 	@echo "Registering the CRDs in both source and destination clusters...."
-	@docker run                                                           		  \
-			-i                                                            		  \
-			--rm                                                          		  \
-			--net=host                                                    		  \
-			-u $$(id -u):$$(id -g)                                        		  \
-			-v $$(pwd):/go/src/$(MODULE)                                  		  \
-			-v $$(pwd)/.go/cache:/.cache                                  		  \
-			-v $(HOME)/.kube:/.kube                                       		  \
-			-w /go/src/$(MODULE)                                          		  \
-			--env HTTP_PROXY=$(HTTP_PROXY)                                		  \
-			--env HTTPS_PROXY=$(HTTPS_PROXY)                              		  \
-			--env GO111MODULE=on                                          		  \
-			--env GOFLAGS="-mod=vendor"                                   		  \
-			--env KUBECONFIG=$(INTERNAL_CONFIG)                           		  \
-			$(DEV_IMAGE)                                                  		  \
-			/bin/bash -c '                                                		  \
-				kubectl delete -f deploy/crds --context=$(SRC_CONTEXT) || true && \
-				kubectl delete -f deploy/crds --context=$(DST_CONTEXT)  || true   \
-			'
+	@kubectl delete -f deploy/crds --context=$(SRC_CONTEXT)
+	@kubectl delete -f deploy/crds --context=$(DST_CONTEXT)
 	@echo "Done"
 
 # Create the RBAC resources necessary for Kubemove in both source and destination cluster
-# Example: make create-rbac-resources SRC_CONTEXT=<source context> DST_CONTEXT=<destination context>
-.PHONY: create-rbac-resources
-create-rbac-resources:
+# Example: make create_rbac_resources
+.PHONY: create_rbac_resources
+create_rbac_resources:
 	@echo "Creating RBAC resources in both source and destination clusters...."
-	@docker run                                                               \
-			-i                                                                \
-			--rm                                                              \
-			--net=host                                                        \
-			-u $$(id -u):$$(id -g)                                            \
-			-v $$(pwd):/go/src/$(MODULE)                                      \
-			-v $$(pwd)/.go/cache:/.cache                                      \
-			-v $(HOME)/.kube:/.kube                                           \
-			-w /go/src/$(MODULE)                                              \
-			--env HTTP_PROXY=$(HTTP_PROXY)                                    \
-			--env HTTPS_PROXY=$(HTTPS_PROXY)                                  \
-			--env GO111MODULE=on                                              \
-			--env GOFLAGS="-mod=vendor"                                       \
-			--env KUBECONFIG=$(INTERNAL_CONFIG)                               \
-			$(DEV_IMAGE)                                                      \
-			/bin/bash -c '                                                    \
-				kubectl apply -f deploy/rbac.yaml --context=$(SRC_CONTEXT) && \
-				kubectl apply -f deploy/rbac.yaml --context=$(DST_CONTEXT)    \
-			'
+	@kubectl apply -f deploy/rbac.yaml --context=$(SRC_CONTEXT)
+	@kubectl apply -f deploy/rbac.yaml --context=$(DST_CONTEXT)
 	@echo "Done"
 
 # Remove the RBAC resources created for Kubemove from both source and destination cluster
-# Example: make create-rbac-resources SRC_CONTEXT=<source context> DST_CONTEXT=<destination context>
-.PHONY: remove-rbac-resources
-remove-rbac-resources:
+# Example: make create_rbac_resources
+.PHONY: remove_rbac_resources
+remove_rbac_resources:
 	@echo "Remove RBAC resources from both source and destination clusters...."
-	@docker run                                                                		   \
-			-i                                                                 		   \
-			--rm                                                               		   \
-			--net=host                                                         		   \
-			-u $$(id -u):$$(id -g)                                             		   \
-			-v $$(pwd):/go/src/$(MODULE)                                       		   \
-			-v $$(pwd)/.go/cache:/.cache                                       		   \
-			-v $(HOME)/.kube:/.kube                                                	   \
-			-w /go/src/$(MODULE)                                               		   \
-			--env HTTP_PROXY=$(HTTP_PROXY)                                     		   \
-			--env HTTPS_PROXY=$(HTTPS_PROXY)                                   		   \
-			--env GO111MODULE=on                                               		   \
-			--env GOFLAGS="-mod=vendor"                                        		   \
-			--env KUBECONFIG=$(INTERNAL_CONFIG)                                		   \
-			$(DEV_IMAGE)                                                       		   \
-			/bin/bash -c '                                                    		   \
-				kubectl delete -f deploy/rbac.yaml --context=$(SRC_CONTEXT) || true && \
-				kubectl delete -f deploy/rbac.yaml --context=$(DST_CONTEXT) || true    \
-			'
+	@kubectl delete -f deploy/rbac.yaml --context=$(SRC_CONTEXT) || true
+	@kubectl delete -f deploy/rbac.yaml --context=$(DST_CONTEXT) || true
 	@echo "Done"
 
 # Deploy MovePair controller in both source and destination cluster
-# Example: make deploy-mp-ctrl SRC_CONTEXT=<source context> DST_CONTEXT=<destination context>
-.PHONY: deploy-mp-ctrl
-deploy-mp-ctrl:
+# Example: make deploy_mp_ctrl
+.PHONY: deploy_mp_ctrl
+deploy_mp_ctrl:
 	@echo "Deploying MovePair controller in both source and destination clusters...."
-	@docker run                                                                                                 \
-			-i                                                                                                  \
-			--rm                                                                                                \
-			--net=host                                                                                          \
-			-u $$(id -u):$$(id -g)                                                                              \
-			-v $$(pwd):/go/src/$(MODULE)                                                                        \
-			-v $$(pwd)/.go/cache:/.cache                                                                        \
-			-v $(HOME)/.kube:/.kube                                                                             \
-			-w /go/src/$(MODULE)                                                                                \
-			--env HTTP_PROXY=$(HTTP_PROXY)                                                                      \
-			--env HTTPS_PROXY=$(HTTPS_PROXY)                                                                    \
-			--env GO111MODULE=on                                                                                \
-			--env GOFLAGS="-mod=vendor"                                                                         \
-			--env KUBECONFIG=$(INTERNAL_CONFIG)                                                                 \
-			--env REGISTRY=$(REGISTRY)                                                                          \
-			$(DEV_IMAGE)                                                                                        \
-			/bin/bash -c '                                                                                      \
-				cat deploy/movepair_controller.yaml | envsubst | kubectl apply -f - --context=$(SRC_CONTEXT) && \
-				cat deploy/movepair_controller.yaml | envsubst | kubectl apply -f - --context=$(DST_CONTEXT)    \
-			'
+	@cat deploy/movepair_controller.yaml | envsubst | kubectl apply -f - --context=$(SRC_CONTEXT)
+	@cat deploy/movepair_controller.yaml | envsubst | kubectl apply -f - --context=$(DST_CONTEXT)
 	@echo "Done"
 
 # Remove MovePair controller from both source and destination cluster
-# Example: make remove-mp-ctrl SRC_CONTEXT=<source context> DST_CONTEXT=<destination context>
-.PHONY: remove-mp-ctrl
-remove-mp-ctrl:
+# Example: make remove_mp_ctrl
+.PHONY: remove_mp_ctrl
+remove_mp_ctrl:
 	@echo "Removing MovePair controller from both source and destination clusters...."
-	@docker run                                                                               		  \
-			-i                                                                                		  \
-			--rm                                                                              		  \
-			--net=host                                                                        		  \
-			-u $$(id -u):$$(id -g)                                                            		  \
-			-v $$(pwd):/go/src/$(MODULE)                                                      		  \
-			-v $$(pwd)/.go/cache:/.cache                                                      		  \
-			-v $(HOME)/.kube:/.kube                                                           		  \
-			-w /go/src/$(MODULE)                                                              		  \
-			--env HTTP_PROXY=$(HTTP_PROXY)                                                    		  \
-			--env HTTPS_PROXY=$(HTTPS_PROXY)                                                  		  \
-			--env GO111MODULE=on                                                              		  \
-			--env GOFLAGS="-mod=vendor"                                                       		  \
-			--env KUBECONFIG=$(INTERNAL_CONFIG)                                               		  \
-			--env REGISTRY=$(REGISTRY)                                                        		  \
-			$(DEV_IMAGE)                                                                      		  \
-			/bin/bash -c '                                                                    		  \
-				kubectl delete -f deploy/movepair_controller.yaml --context=$(SRC_CONTEXT) || true && \
-				kubectl delete -f deploy/movepair_controller.yaml --context=$(DST_CONTEXT) || true    \
-			'
+	@kubectl delete -f deploy/movepair_controller.yaml --context=$(SRC_CONTEXT) || true
+	@kubectl delete -f deploy/movepair_controller.yaml --context=$(DST_CONTEXT) || true
 	@echo "Done"
 
 # Deploy MoveEngine controller in both source and destination cluster
-# Example: make deploy-me-ctrl SRC_CONTEXT=<source context> DST_CONTEXT=<destination context>
-.PHONY: deploy-me-ctrl
-deploy-me-ctrl:
+# Example: make deploy_me_ctrl
+.PHONY: deploy_me_ctrl
+deploy_me_ctrl:
 	@echo "Deploying MoveEngine controller in both source and destination clusters...."
-	@docker run                                                                                                   \
-			-i                                                                                                    \
-			--rm                                                                                                  \
-			--net=host                                                                                            \
-			-u $$(id -u):$$(id -g)                                                                                \
-			-v $$(pwd):/go/src/$(MODULE)                                                                          \
-			-v $$(pwd)/.go/cache:/.cache                                                                          \
-			-v $(HOME)/.kube:/.kube                                                                               \
-			-w /go/src/$(MODULE)                                                                                  \
-			--env HTTP_PROXY=$(HTTP_PROXY)                                                                        \
-			--env HTTPS_PROXY=$(HTTPS_PROXY)                                                                      \
-			--env GO111MODULE=on                                                                                  \
-			--env GOFLAGS="-mod=vendor"                                                                           \
-			--env KUBECONFIG=$(INTERNAL_CONFIG)                                                                   \
-			--env REGISTRY=$(REGISTRY)                                                                            \
-			$(DEV_IMAGE)                                                                                          \
-			/bin/bash -c '                                                                                        \
-				cat deploy/moveengine_controller.yaml | envsubst | kubectl apply -f - --context=$(SRC_CONTEXT) && \
-				cat deploy/moveengine_controller.yaml | envsubst | kubectl apply -f - --context=$(DST_CONTEXT)    \
-			'
+	@cat deploy/moveengine_controller.yaml | envsubst | kubectl apply -f - --context=$(SRC_CONTEXT)
+	@cat deploy/moveengine_controller.yaml | envsubst | kubectl apply -f - --context=$(DST_CONTEXT)
 	@echo "Done"
 
 # Remove MoveEngine controller from both source and destination cluster
-# Example: make remove-me-ctrl SRC_CONTEXT=<source context> DST_CONTEXT=<destination context>
-.PHONY: remove-me-ctrl
-remove-me-ctrl:
+# Example: make remove_me_ctrl
+.PHONY: remove_me_ctrl
+remove_me_ctrl:
 	@echo "Removing MoveEngine controller from both source and destination clusters...."
-	@docker run                                                                                 		\
-			-i                                                                                  		\
-			--rm                                                                                		\
-			--net=host                                                                          		\
-			-u $$(id -u):$$(id -g)                                                              		\
-			-v $$(pwd):/go/src/$(MODULE)                                                        		\
-			-v $$(pwd)/.go/cache:/.cache                                                        		\
-			-v $(HOME)/.kube:/.kube                                                             		\
-			-w /go/src/$(MODULE)                                                                		\
-			--env HTTP_PROXY=$(HTTP_PROXY)                                                      		\
-			--env HTTPS_PROXY=$(HTTPS_PROXY)                                                    		\
-			--env GO111MODULE=on                                                                		\
-			--env GOFLAGS="-mod=vendor"                                                         		\
-			--env KUBECONFIG=$(INTERNAL_CONFIG)                                                 		\
-			--env REGISTRY=$(REGISTRY)                                                          		\
-			$(DEV_IMAGE)                                                                        		\
-			/bin/bash -c '                                                                      		\
-				kubectl delete -f deploy/moveengine_controller.yaml --context=$(SRC_CONTEXT) || true && \
-				kubectl delete -f deploy/moveengine_controller.yaml --context=$(DST_CONTEXT) || true    \
-			'
+	@kubectl delete -f deploy/moveengine_controller.yaml --context=$(SRC_CONTEXT) || true
+	@kubectl delete -f deploy/moveengine_controller.yaml --context=$(DST_CONTEXT) || true
 	@echo "Done"
 
 # Deploy DataSync controller in both source and destination cluster
-# Example: make deploy-ds-ctrl SRC_CONTEXT=<source context> DST_CONTEXT=<destination context>
-.PHONY: deploy-ds-ctrl
-deploy-ds-ctrl:
+# Example: make deploy_ds_ctrl
+.PHONY: deploy_ds_ctrl
+deploy_ds_ctrl:
 	@echo "Deploying DataSync controller in both source and destination clusters...."
-	@docker run                                                                                                 \
-			-i                                                                                                  \
-			--rm                                                                                                \
-			--net=host                                                                                          \
-			-u $$(id -u):$$(id -g)                                                                              \
-			-v $$(pwd):/go/src/$(MODULE)                                                                        \
-			-v $$(pwd)/.go/cache:/.cache                                                                        \
-			-v $(HOME)/.kube:/.kube                                                                             \
-			-w /go/src/$(MODULE)                                                                                \
-			--env HTTP_PROXY=$(HTTP_PROXY)                                                                      \
-			--env HTTPS_PROXY=$(HTTPS_PROXY)                                                                    \
-			--env GO111MODULE=on                                                                                \
-			--env GOFLAGS="-mod=vendor"                                                                         \
-			--env KUBECONFIG=$(INTERNAL_CONFIG)                                                                 \
-			--env REGISTRY=$(REGISTRY)                                                                          \
-			$(DEV_IMAGE)                                                                                        \
-			/bin/bash -c '                                                                                      \
-				cat deploy/datasync_controller.yaml | envsubst | kubectl apply -f - --context=$(SRC_CONTEXT) && \
-				cat deploy/datasync_controller.yaml | envsubst | kubectl apply -f - --context=$(DST_CONTEXT)    \
-			'
+	@cat deploy/datasync_controller.yaml | envsubst | kubectl apply -f - --context=$(SRC_CONTEXT)
+	@cat deploy/datasync_controller.yaml | envsubst | kubectl apply -f - --context=$(DST_CONTEXT)
 	@echo "Done"
 
 # Remove DataSync controller from both source and destination cluster
-# Example: make remove-ds-ctrl SRC_CONTEXT=<source context> DST_CONTEXT=<destination context>
-.PHONY: remove-ds-ctrl
-remove-ds-ctrl:
+# Example: make remove_ds_ctrl
+.PHONY: remove_ds_ctrl
+remove_ds_ctrl:
 	@echo "Removing DataSync controller from both source and destination clusters...."
-	@docker run                                                                               		  \
-			-i                                                                                		  \
-			--rm                                                                              		  \
-			--net=host                                                                        		  \
-			-u $$(id -u):$$(id -g)                                                            		  \
-			-v $$(pwd):/go/src/$(MODULE)                                                      		  \
-			-v $$(pwd)/.go/cache:/.cache                                                      		  \
-			-v $(HOME)/.kube:/.kube                                                           		  \
-			-w /go/src/$(MODULE)                                                              		  \
-			--env HTTP_PROXY=$(HTTP_PROXY)                                                    		  \
-			--env HTTPS_PROXY=$(HTTPS_PROXY)                                                  		  \
-			--env GO111MODULE=on                                                              		  \
-			--env GOFLAGS="-mod=vendor"                                                       		  \
-			--env KUBECONFIG=$(INTERNAL_CONFIG)                                               		  \
-			--env REGISTRY=$(REGISTRY)                                                        		  \
-			$(DEV_IMAGE)                                                                      		  \
-			/bin/bash -c '                                                                    		  \
-				kubectl delete -f deploy/datasync_controller.yaml --context=$(SRC_CONTEXT) || true && \
-				kubectl delete -f deploy/datasync_controller.yaml --context=$(DST_CONTEXT) || true    \
-			'
+	@kubectl delete -f deploy/datasync_controller.yaml --context=$(SRC_CONTEXT) || true
+	@kubectl delete -f deploy/datasync_controller.yaml --context=$(DST_CONTEXT) || true
 	@echo "Done"
 
 # Create a MovePair CR in the source cluster for two local kind clusters
-# Example: make create-local-mp SRC_CONTEXT=<source context> DST_CONTEXT=<destination context>
-.PHONY: create-local-mp
-create-local-mp:
+# Example: make create_local_mp
+.PHONY: create_local_mp
+create_local_mp:
 	$(eval SRC_CLUSTER_CA:=$(shell (kubectl config view --raw -o=jsonpath='{.clusters[?(@.name=="$(SRC_CONTEXT)")].cluster.certificate-authority-data}')))
 	$(eval SRC_CLUSTER_CLIENT_CERT:=$(shell (kubectl config view --raw -o=jsonpath='{.users[?(@.name=="$(SRC_CONTEXT)")].user.client-certificate-data}')))
 	$(eval SRC_CLUSTER_CLIENT_KEY:=$(shell (kubectl config view --raw -o=jsonpath='{.users[?(@.name=="$(SRC_CONTEXT)")].user.client-key-data}')))
@@ -550,166 +343,35 @@ create-local-mp:
 	$(eval DST_CLUSTER_CLIENT_KEY:=$(shell (kubectl config view --raw -o=jsonpath='{.users[?(@.name=="$(DST_CONTEXT)")].user.client-key-data}')))
 
 	@echo "Creating local MovePair CR in the source cluster...."
-	@docker run                                                                                                     \
-			-i                                                                                                      \
-			--rm                                                                                                    \
-			--net=host                                                                                              \
-			-u $$(id -u):$$(id -g)                                                                                  \
-			-v $$(pwd):/go/src/$(MODULE)                                                                            \
-			-v $$(pwd)/.go/cache:/.cache                                                                            \
-			-v $(HOME)/.kube:/.kube                                                                                 \
-			-w /go/src/$(MODULE)                                                                                    \
-			--env HTTP_PROXY=$(HTTP_PROXY)                                                                          \
-			--env HTTPS_PROXY=$(HTTPS_PROXY)                                                                        \
-			--env GO111MODULE=on                                                                                    \
-			--env GOFLAGS="-mod=vendor"                                                                             \
-			--env KUBECONFIG=$(INTERNAL_CONFIG)                                                                     \
-			--env REGISTRY=$(REGISTRY)                                                                              \
-			--env SRC_CLUSTER_CA=$(SRC_CLUSTER_CA) 				   												    \
-			--env SRC_CLUSTER_CLIENT_CERT=$(SRC_CLUSTER_CLIENT_CERT)												\
-			--env SRC_CLUSTER_CLIENT_KEY=$(SRC_CLUSTER_CLIENT_KEY)  												\
-			--env SRC_CLUSTER_NAME=$(SRC_CONTEXT)                   												\
-			--env SRC_CLUSTER_IP=$(SRC_CLUSTER_IP)                  												\
-			--env DST_CLUSTER_CA=$(DST_CLUSTER_CA) 				    												\
-			--env DST_CLUSTER_CLIENT_CERT=$(DST_CLUSTER_CLIENT_CERT)												\
-			--env DST_CLUSTER_CLIENT_KEY=$(DST_CLUSTER_CLIENT_KEY)  												\
-			--env DST_CLUSTER_NAME=$(DST_CONTEXT)                   												\
-			--env DST_CLUSTER_IP=$(DST_CLUSTER_IP)                  												\
-			$(DEV_IMAGE)                                                                                            \
-			/bin/bash -c '                                                                                          \
-				cat examples/resources/movepair/local.yaml | envsubst | kubectl apply -f - --context=$(SRC_CONTEXT) \
-			'
+	@/bin/bash -c "                                                 				\
+		export SRC_CLUSTER_NAME=$(SRC_CONTEXT) && 									\
+		export SRC_CLUSTER_IP=$(SRC_CLUSTER_IP) && 									\
+		export SRC_CLUSTER_CA=$(SRC_CLUSTER_CA) && 									\
+		export SRC_CLUSTER_CLIENT_CERT=$(SRC_CLUSTER_CLIENT_CERT) &&				\
+		export SRC_CLUSTER_CLIENT_KEY=$(SRC_CLUSTER_CLIENT_KEY) &&					\
+		export DST_CLUSTER_NAME=$(DST_CONTEXT) && 									\
+        export DST_CLUSTER_IP=$(DST_CLUSTER_IP) && 									\
+		export DST_CLUSTER_CA=$(DST_CLUSTER_CA) && 									\
+		export DST_CLUSTER_CLIENT_CERT=$(DST_CLUSTER_CLIENT_CERT) && 				\
+		export DST_CLUSTER_CLIENT_KEY=$(DST_CLUSTER_CLIENT_KEY) &&					\
+		cat examples/resources/movepair/local.yaml | envsubst | kubectl apply -f -	\
+	"
 	@echo "Done"
-
 
 # Remove local MovePair CR from the source cluster
-# Example: make remove-local-mp SRC_CONTEXT=<source context> DST_CONTEXT=<destination context>
-.PHONY: remove-local-mp
-remove-local-mp:
+# Example: make remove_local_mp
+.PHONY: remove_local_mp
+remove_local_mp:
 	@echo "Removing local MovePair CR from controller the source cluster...."
-	@docker run                                                                                   		  \
-			-i                                                                                    		  \
-			--rm                                                                                  		  \
-			--net=host                                                                            		  \
-			-u $$(id -u):$$(id -g)                                                                		  \
-			-v $$(pwd):/go/src/$(MODULE)                                                          		  \
-			-v $$(pwd)/.go/cache:/.cache                                                          		  \
-			-v $(HOME)/.kube:/.kube                                                               		  \
-			-w /go/src/$(MODULE)                                                                  		  \
-			--env HTTP_PROXY=$(HTTP_PROXY)                                                        		  \
-			--env HTTPS_PROXY=$(HTTPS_PROXY)                                                      		  \
-			--env GO111MODULE=on                                                                  		  \
-			--env GOFLAGS="-mod=vendor"                                                           		  \
-			--env KUBECONFIG=$(INTERNAL_CONFIG)                                                   		  \
-			--env REGISTRY=$(REGISTRY)                                                            		  \
-			$(DEV_IMAGE)                                                                          		  \
-			/bin/bash -c '                                                                        		  \
-				kubectl delete -f examples/resources/movepair/local.yaml --context=$(SRC_CONTEXT) || true \
-			'
-	@echo "Done"
-
-# Deploy Minio server in the destination cluster
-# Example: make deploy-minio SRC_CONTEXT=<source context> DST_CONTEXT=<destination context>
-.PHONY: deploy-minio
-deploy-minio:
-	@echo "Deploying Minio server in the destination cluster...."
-	@docker run                                                                                                 				\
-			-i                                                                                                  				\
-			--rm                                                                                                				\
-			--net=host                                                                                          				\
-			-u $$(id -u):$$(id -g)                                                                              				\
-			-v $$(pwd):/go/src/$(MODULE)                                                                        				\
-			-v $$(pwd)/.go/cache:/.cache                                                                        				\
-			-v $(HOME)/.kube:/.kube                                                                             				\
-			-v /tmp:/.mc																										\
-			-w /go/src/$(MODULE)                                                                                				\
-			--env HTTP_PROXY=$(HTTP_PROXY)                                                                      				\
-			--env HTTPS_PROXY=$(HTTPS_PROXY)                                                                    				\
-			--env GO111MODULE=on                                                                                				\
-			--env GOFLAGS="-mod=vendor"                                                                         				\
-			--env KUBECONFIG=$(INTERNAL_CONFIG)                                                                 				\
-			--env REGISTRY=$(REGISTRY)                                                                          				\
-			--env MINIO_ACCESS_KEY=$(MINIO_ACCESS_KEY) 																			\
-			--env MINIO_SECRET_KEY=$(MINIO_SECRET_KEY) 																			\
-			$(DEV_IMAGE)                                                                                                        \
-			/bin/bash -c '                                                                                                      \
-				cat examples/resources/repository/minio_secret.yaml | envsubst | kubectl apply -f - --context=$(SRC_CONTEXT) && \
-				cat examples/resources/repository/minio_secret.yaml | envsubst | kubectl apply -f - --context=$(DST_CONTEXT) && \
-				cat examples/resources/repository/minio_server.yaml | envsubst | kubectl apply -f - --context=$(DST_CONTEXT)    \
-			'
-	@echo "Done"
-
-# Remove Minio server from the destination cluster
-# Example: make remove-minio SRC_CONTEXT=<source context> DST_CONTEXT=<destination context>
-.PHONY: remove-minio
-remove-minio:
-	@echo "Removing Minio server from the destination cluster...."
-	@docker run                                                                                               		  \
-			-i                                                                                                 		  \
-			--rm                                                                                              		  \
-			--net=host                                                                                        		  \
-			-u $$(id -u):$$(id -g)                                                                            		  \
-			-v $$(pwd):/go/src/$(MODULE)                                                                      		  \
-			-v $$(pwd)/.go/cache:/.cache                                                                      		  \
-			-v $(HOME)/.kube:/.kube                                                                           		  \
-			-v /tmp:/.mc																					  		  \
-			-w /go/src/$(MODULE)                                                                              		  \
-			--env HTTP_PROXY=$(HTTP_PROXY)                                                                    		  \
-			--env HTTPS_PROXY=$(HTTPS_PROXY)                                                                  		  \
-			--env GO111MODULE=on                                                                              	  	  \
-			--env GOFLAGS="-mod=vendor"                                                                       		  \
-			--env KUBECONFIG=$(INTERNAL_CONFIG)                                                               		  \
-			--env REGISTRY=$(REGISTRY)                                                                        		  \
-			$(DEV_IMAGE)                                                                                      		  \
-			/bin/bash -c '                                                                                            \
-				kubectl delete -f examples/resources/repository/minio_secret.yaml --context=$(SRC_CONTEXT) || true && \
-				kubectl delete -f examples/resources/repository/minio_secret.yaml --context=$(DST_CONTEXT) || true && \
-				kubectl delete -f examples/resources/repository/minio_server.yaml --context=$(DST_CONTEXT) || true    \
-			'
-	@echo "Done"
-
-# Create a bucket in the minio server
-# Example: make create-minio-bucket BUCKET_NAME=<my-bucket> SRC_CONTEXT=<source context> DST_CONTEXT=<destination context>
-BUCKET_NAME:=demo
-.PHONY: create-minio-bucket
-create-minio-bucket:
-	$(eval MINIO_NODEPORT:=$(shell (kubectl get service/minio -o yaml --context=$(DST_CONTEXT) | grep nodePort | cut -c15-)))
-	$(eval MINIO_SERVER_ADDRESS:=$(DST_CLUSTER_IP):$(MINIO_NODEPORT))
-
-	@echo "Creating bucket: $(BUCKET_NAME) in the minio server...."
-	@docker run                                                                                                       \
-			-i                                                                                                  	  \
-			--rm                                                                                                	  \
-			--net=host                                                                                          	  \
-			-u $$(id -u):$$(id -g)                                                                              	  \
-			-v $$(pwd):/go/src/$(MODULE)                                                                        	  \
-			-v $$(pwd)/.go/cache:/.cache                                                                        	  \
-			-v $(HOME)/.kube:/.kube                                                                             	  \
-			-v /tmp:/.mc																							  \
-			-w /go/src/$(MODULE)                                                                                	  \
-			--env HTTP_PROXY=$(HTTP_PROXY)                                                                      	  \
-			--env HTTPS_PROXY=$(HTTPS_PROXY)                                                                    	  \
-			--env GO111MODULE=on                                                                                	  \
-			--env GOFLAGS="-mod=vendor"                                                                         	  \
-			--env KUBECONFIG=$(INTERNAL_CONFIG)                                                                 	  \
-			--env REGISTRY=$(REGISTRY)                                                                          	  \
-			--env MINIO_ACCESS_KEY=$(MINIO_ACCESS_KEY) 																  \
-			--env MINIO_SECRET_KEY=$(MINIO_SECRET_KEY) 																  \
-			$(DEV_IMAGE)                                                                                              \
-			/bin/bash -c '                                                                                            \
-				kubectl wait --for=condition=READY pods --all --timeout=5m --context=$(DST_CONTEXT)                && \
-				sleep 20 																						   && \
-				mc config host add my-minio http://$(MINIO_SERVER_ADDRESS) $(MINIO_ACCESS_KEY) $(MINIO_SECRET_KEY) && \
-				mc mb my-minio/$(BUCKET_NAME)  																		  \
-			'
+	@kubectl delete -f examples/resources/movepair/local.yaml --context=$(SRC_CONTEXT) || true
 	@echo "Done"
 
 # Install necessary Kubemove resources
-# Example: make prepare REGISTRY=<your docker registry>
-.PHONY: prepare
-prepare: register-crds create-rbac-resources deploy-mp-ctrl deploy-me-ctrl deploy-ds-ctrl deploy-minio create-minio-bucket
+# Example: make deploy_kubemove
+.PHONY: deploy_kubemove
+deploy_kubemove: register_crds create_rbac_resources deploy_mp_ctrl deploy_me_ctrl deploy_ds_ctrl
 
 # Remove all kubemove resources from the source and destination clusters
-# Example: make reset
-.PHONY: reset
-reset: remove-minio remove-ds-ctrl remove-me-ctrl remove-mp-ctrl remove-rbac-resources remove-crds
+# Example: make purge_kubemove
+.PHONY: purge_kubemove
+purge_kubemove: remove_ds_ctrl remove_me_ctrl remove_mp_ctrl remove_rbac_resources remove_crds

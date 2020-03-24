@@ -3,7 +3,7 @@ package main
 import (
 	"github.com/go-logr/logr"
 	client "github.com/kubemove/kubemove/pkg/plugin/ddm/plugin"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 type dummyDDM struct {

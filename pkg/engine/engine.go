@@ -34,7 +34,7 @@ type MResources struct {
 }
 
 type MultiResource struct {
-	groupResource []string
+	groupResource []string //nolint
 	seen          bool
 }
 
@@ -58,8 +58,6 @@ type MoveEngineAction struct {
 	stsVolMap          map[MResources]unstructured.Unstructured
 	syncedResourceMap  map[MResources]v1alpha1.ResourceStatus
 	syncedVolMap       map[MResources]v1alpha1.VolumeStatus
-	namespace          string
-	plugin             string
 	log                logr.Logger
 }
 
@@ -155,6 +153,7 @@ func (m *MoveEngineAction) resetMultiAPIResources() {
 	}
 }
 
+//nolint:unused,deadcode
 func convertJSONToUnstructured(data []byte) (unstructured.Unstructured, error) {
 	obj := unstructured.Unstructured{}
 

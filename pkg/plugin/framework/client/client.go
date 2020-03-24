@@ -64,7 +64,6 @@ func createServer(cAddr *addr, opt Initializer) {
 	if err := s.Serve(lis); err != nil {
 		panic(err)
 	}
-	return
 }
 
 func shutdown() {
