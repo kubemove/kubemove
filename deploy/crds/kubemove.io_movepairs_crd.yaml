@@ -30,10 +30,7 @@ spec:
           description: MovePairSpec defines the desired state of MovePair
           properties:
             config:
-              description: 'INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-                Important: Run "operator-sdk generate k8s" to regenerate code after
-                modifying this file Add custom validation using kubebuilder tags:
-                https://book.kubebuilder.io/beyond_basics/generating_crd.html'
+              description: Config specifies the cluster config
               properties:
                 apiVersion:
                   description: 'Legacy field from pkg/api/types.go TypeMeta. TODO(jlowdermilk):

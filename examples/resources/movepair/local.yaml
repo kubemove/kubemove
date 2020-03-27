@@ -1,0 +1,36 @@
+apiVersion: kubemove.io/v1alpha1
+kind: MovePair
+metadata:
+  name: local
+  namespace: kubemove
+spec:
+  config:
+    clusters:
+    - cluster:
+        certificate-authority-data: ${SRC_CLUSTER_CA}
+        server: https://${SRC_CLUSTER_IP}:6443
+      name: ${SRC_CLUSTER_NAME}
+    - cluster:
+        certificate-authority-data: ${DST_CLUSTER_CA}
+        server: https://${DST_CLUSTER_IP}:6443
+      name: ${DST_CLUSTER_NAME}
+    contexts:
+    - context:
+        cluster: ${SRC_CLUSTER_NAME}
+        user: ${SRC_CLUSTER_NAME}
+      name: ${SRC_CLUSTER_NAME}
+    - context:
+        cluster: ${DST_CLUSTER_NAME}
+        user: ${DST_CLUSTER_NAME}
+      name: ${DST_CLUSTER_NAME}
+    current-context: ${DST_CLUSTER_NAME}
+    preferences: {}
+    users:
+    - name: ${SRC_CLUSTER_NAME}
+      user:
+        client-certificate-data: ${SRC_CLUSTER_CLIENT_CERT}
+        client-key-data: ${SRC_CLUSTER_CLIENT_KEY}
+    - name: ${DST_CLUSTER_NAME}
+      user:
+        client-certificate-data: ${DST_CLUSTER_CLIENT_CERT}
+        client-key-data: ${DST_CLUSTER_CLIENT_KEY}

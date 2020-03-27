@@ -3,20 +3,27 @@ package datasync
 import (
 	"context"
 	"errors"
+	"fmt"
+	"time"
 
 	"github.com/go-logr/logr"
 	kubemovev1alpha1 "github.com/kubemove/kubemove/pkg/apis/kubemove/v1alpha1"
 	ds "github.com/kubemove/kubemove/pkg/datasync"
+	plugin "github.com/kubemove/kubemove/pkg/plugin/ddm/plugin"
 	server "github.com/kubemove/kubemove/pkg/plugin/ddm/server"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+)
+
+const (
+	RetryInterval = 5 * time.Second
 )
 
 var log = logf.Log.WithName("controller_datasync")
@@ -94,15 +101,58 @@ func (r *ReconcileDataSync) Reconcile(request reconcile.Request) (reconcile.Resu
 		return reconcile.Result{}, err
 	}
 
-	ddm := ds.NewDataSyncer(instance, r.ddm)
+	ddm := ds.NewDataSyncer(r.client, instance, r.ddm)
 	if ddm == nil {
-		return reconcile.Result{}, errors.New("Failed to create DataSyncer")
+		return reconcile.Result{}, errors.New("failed to create DataSyncer")
 	}
 
-	err = ddm.Sync()
-	if err != nil {
-		return reconcile.Result{}, err
+	switch instance.Status.Status {
+	case "":
+		// No sync has been done for this DataSync CR. Let's invoke the SYNC API and set it's status to "Running".
+		err := ddm.UpdateDataSyncStatus(kubemovev1alpha1.SyncStateRunning, "")
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		// Invoke the Sync API
+		err = ddm.Sync()
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		// Now, we should hit STATUS API periodically to know the sync status.
+		// Here, we will utilize the controller to achieve the periodic check behavior.
+		// We will just requeue after some time. Rest of the process will be taken care of by the respective case.
+		return reconcile.Result{Requeue: true, RequeueAfter: RetryInterval}, nil
+	case kubemovev1alpha1.SyncStateRunning:
+		// Invoke the STATUS API to determine the sync status
+		state, err := ddm.SyncStatus()
+		if err != nil && state != plugin.Errored {
+			return reconcile.Result{}, err
+		}
+		switch state {
+		case plugin.InProgress:
+			// Nothing to do. Just wait and try after sometime
+			return reconcile.Result{Requeue: true, RequeueAfter: RetryInterval}, nil
+		case plugin.Completed:
+			// Set DataSync status to completed
+			return reconcile.Result{}, ddm.UpdateDataSyncStatus(kubemovev1alpha1.SyncStateCompleted, "")
+		case plugin.Errored, plugin.Unknown:
+			// Set DataSync status to failed and set the respective error
+			failureReason := ""
+			if err != nil {
+				failureReason = err.Error()
+			}
+			return reconcile.Result{}, ddm.UpdateDataSyncStatus(kubemovev1alpha1.SyncStateFailed, failureReason)
+		case plugin.Failed:
+			// Sync failed but failure reason is unknown
+			return reconcile.Result{}, ddm.UpdateDataSyncStatus(kubemovev1alpha1.SyncStateFailed, "")
+		default:
+			return reconcile.Result{}, fmt.Errorf("unknown Sync state")
+		}
+	case kubemovev1alpha1.SyncStateCompleted, kubemovev1alpha1.SyncStateFailed:
+		// Nothing to do. Just log a message and skip processing
+		r.log.Info(fmt.Sprintf("Skipping processing DataSync %s/%s. Reason: Status is %q", instance.Namespace, instance.Name, instance.Status.Status))
+		return reconcile.Result{}, nil
+	default:
+		return reconcile.Result{}, fmt.Errorf("invalid status: %q for DataSync: %s/%s", instance.Status.Status, instance.Namespace, instance.Name)
 	}
-
-	return reconcile.Result{}, nil
 }

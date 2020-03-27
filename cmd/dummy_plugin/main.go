@@ -3,12 +3,12 @@ package main
 import (
 	"github.com/go-logr/logr"
 	client "github.com/kubemove/kubemove/pkg/plugin/ddm/plugin"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 type dummyDDM struct {
 	log logr.Logger
-	p   client.Plugin
+	p   client.Plugin //nolint
 }
 
 var _ client.Plugin = (*dummyDDM)(nil)
@@ -32,7 +32,7 @@ func (d *dummyDDM) Init(param map[string]string) error {
 	return nil
 }
 
-func (d *dummyDDM) Sync( param map[string]string) (string, error) {
+func (d *dummyDDM) Sync(param map[string]string) (string, error) {
 	d.log.Info("Syncing engine %v", param["engineName"])
 	return "dummy_id", nil
 }

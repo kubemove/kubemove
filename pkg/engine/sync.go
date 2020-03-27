@@ -116,6 +116,7 @@ func (m *MoveEngineAction) syncResourceList() error {
 	return nil
 }
 
+//nolint:unparam
 func (m *MoveEngineAction) transformObj(obj unstructured.Unstructured) error {
 	unstructured.RemoveNestedField(obj.Object, "metadata", "creationTimestamp")
 	unstructured.RemoveNestedField(obj.Object, "metadata", "resourceVersion")

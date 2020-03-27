@@ -99,15 +99,9 @@ func schema_pkg_apis_kubemove_v1alpha1_DataSyncSpec(ref common.ReferenceCallback
 							Format: "",
 						},
 					},
-					"backup": {
+					"mode": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"boolean"},
-							Format: "",
-						},
-					},
-					"restore": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"boolean"},
+							Type:   []string{"string"},
 							Format: "",
 						},
 					},
@@ -126,7 +120,7 @@ func schema_pkg_apis_kubemove_v1alpha1_DataSyncSpec(ref common.ReferenceCallback
 						},
 					},
 				},
-				Required: []string{"namespace", "plugin", "moveEngine", "backup", "restore", "config"},
+				Required: []string{"namespace", "plugin", "moveEngine", "mode"},
 			},
 		},
 	}
@@ -154,8 +148,7 @@ func schema_pkg_apis_kubemove_v1alpha1_DataSyncStatus(ref common.ReferenceCallba
 					},
 					"completionTime": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
 						},
 					},
 					"reason": {
@@ -165,9 +158,11 @@ func schema_pkg_apis_kubemove_v1alpha1_DataSyncStatus(ref common.ReferenceCallba
 						},
 					},
 				},
-				Required: []string{"stage", "status", "completionTime", "reason"},
+				Required: []string{"stage", "status"},
 			},
 		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
 	}
 }
 
@@ -286,43 +281,42 @@ func schema_pkg_apis_kubemove_v1alpha1_MoveEngineStatus(ref common.ReferenceCall
 				Description: "MoveEngineStatus defines the observed state of MoveEngine",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"Status": {
+					"status": {
 						SchemaProps: spec.SchemaProps{
 							Description: "INSERT ADDITIONAL STATUS FIELD - define observed state of cluster Important: Run \"operator-sdk generate k8s\" to regenerate code after modifying this file Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
-					"LastStatus": {
+					"lastStatus": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
 						},
 					},
-					"SyncedTime": {
+					"syncedTime": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
 						},
 					},
-					"LastSyncedTime": {
+					"lastSyncedTime": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
 						},
 					},
-					"DataSync": {
+					"dataSync": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
 						},
 					},
-					"DataSyncStatus": {
+					"dataSyncStatus": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
 						},
 					},
 				},
-				Required: []string{"Status", "LastStatus", "SyncedTime", "LastSyncedTime", "DataSync", "DataSyncStatus"},
 			},
 		},
 		Dependencies: []string{
@@ -383,7 +377,7 @@ func schema_pkg_apis_kubemove_v1alpha1_MovePairSpec(ref common.ReferenceCallback
 				Properties: map[string]spec.Schema{
 					"config": {
 						SchemaProps: spec.SchemaProps{
-							Description: "INSERT ADDITIONAL SPEC FIELDS - desired state of cluster Important: Run \"operator-sdk generate k8s\" to regenerate code after modifying this file Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html",
+							Description: "Config specifies the cluster config",
 							Ref:         ref("k8s.io/client-go/tools/clientcmd/api/v1.Config"),
 						},
 					},

@@ -110,6 +110,7 @@ func (m *MoveEngineAction) ListResourcesFromAPI(api metav1.APIResource) (*unstru
 
 }
 
+//nolint:unparam
 func (m *MoveEngineAction) parseResource(api metav1.APIResource, obj unstructured.Unstructured) error {
 	switch api.Name {
 	case "pods":

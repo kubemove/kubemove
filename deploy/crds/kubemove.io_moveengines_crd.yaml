@@ -3,6 +3,25 @@ kind: CustomResourceDefinition
 metadata:
   name: moveengines.kubemove.io
 spec:
+  additionalPrinterColumns:
+  - JSONPath: .spec.mode
+    name: Mode
+    type: string
+  - JSONPath: .spec.syncPeriod
+    name: Sync-Period
+    type: string
+  - JSONPath: .status.status
+    name: Status
+    type: string
+  - JSONPath: .status.dataSync
+    name: Data-Sync
+    type: string
+  - JSONPath: .status.dataSyncStatus
+    name: Sync-Status
+    type: string
+  - JSONPath: .status.syncedTime
+    name: Synced-Time
+    type: date
   group: kubemove.io
   names:
     kind: MoveEngine
@@ -10,6 +29,7 @@ spec:
     plural: moveengines
     singular: moveengine
   scope: ""
+  subresources: {}
   validation:
     openAPIV3Schema:
       description: MoveEngine is the Schema for the moveengines API
@@ -61,31 +81,24 @@ spec:
         status:
           description: MoveEngineStatus defines the observed state of MoveEngine
           properties:
-            DataSync:
+            dataSync:
               type: string
-            DataSyncStatus:
+            dataSyncStatus:
               type: string
-            LastStatus:
+            lastStatus:
               type: string
-            LastSyncedTime:
+            lastSyncedTime:
               format: date-time
               type: string
-            Status:
+            status:
               description: 'INSERT ADDITIONAL STATUS FIELD - define observed state
                 of cluster Important: Run "operator-sdk generate k8s" to regenerate
                 code after modifying this file Add custom validation using kubebuilder
                 tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html'
               type: string
-            SyncedTime:
+            syncedTime:
               format: date-time
               type: string
-          required:
-          - DataSync
-          - DataSyncStatus
-          - LastStatus
-          - LastSyncedTime
-          - Status
-          - SyncedTime
           type: object
       type: object
   version: v1alpha1

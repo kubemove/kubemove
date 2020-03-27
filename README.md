@@ -43,6 +43,136 @@ Join the discussion through the issue [here](<https://github.com/kubemove/kubemo
 - Onramp to Kubernetes - KubeMove can help migrate the data from legacy volumes onto Kubernetes
 - Kubernetes and/or application upgrades - Applications may need to be moved back and forth while following blue green strategy
 
+# Developer Guide
+
+Kubemove uses `Makefile` based build process. This section will give you an overview on how to build and deploy Kubemove resources.
+
+## Setup Environment
+
+Setup your development environment by the following steps.
+
+- Use your own docker account for the docker images:
+```bash
+export REGISTRY=<your docker username>
+```
+
+- Build a developer image with all dependencies:
+```bash
+make dev-image
+```
+
+## Code Generation
+
+If you update any API or any gRPC protos, then generate respective codes by the following steps.
+
+ - Generate gRPC codes:
+ ```bash
+make gen-grpc
+ ```
+
+- Generate CRDs and respective codes.
+```bash
+make gen-crds
+```
+
+- Update respective controllers
+```bash
+make gen-k8s
+```
+
+Alternatively, you can run the following command that will run all the previous code generation commands.
+
+```bash
+make gen
+```
+
+## Build the Binaries and Docker Images
+
+If you update any codes, then re-build the project and the respective docker images.
+
+- Run `gofmt`
+```bash
+make format
+```
+
+- Run linter
+```bash
+make lint
+```
+
+- Build binaries
+```bash
+make build
+```
+
+- Build docker images
+```bash
+make images
+```
+
+- Push docker images
+```bash
+make deploy-images
+```
+
+## Deploy Kubemove
+
+At first, create two different clusters. Make sure `KUBECONFIG` environment variable is pointing to the right cluster config file.
+
+- Specify the source cluster, and the destination cluster
+```bash
+export SRC_CONTEXT=<source cluster context>
+export DST_CONTEXT=<destination cluster context>
+```
+
+- Register the Kubemove CRDs
+```bash
+make register_crds
+```
+- Create the RBAC resources
+```bash
+make create_rbac_resources
+```
+
+- Deploy MovePair controller
+```bash
+make deploy_mp_ctrl
+```
+
+- Deploy MoveEngine controller
+```bash
+make deploy_me_ctrl
+```
+
+- Deploy DataSync controller
+```bash
+make deploy_ds_ctrl
+```
+
+You can also install all the Kubemove resources by using the following command:
+```bash
+make deploy_kubemove
+```
+
+If you are using two local kind cluster, you can create a MovePair using the following command:
+```bash
+make create_local_mp
+```
+
+## Removing Kubemove
+
+You can uninstall/remove all Kubemove resources created in the deploy section just by replacing
+`deploy`,`create`, or `register` word of the respective command with `remove`. For example:
+```bash
+make remove_mp_ctrl
+```
+
+Alternatively, you can use the following command to remove all the Kubemove resources created in the clusters using
+the following command,
+```bash
+make purge_kubemove
+```
+
 # License
 
 KubeMove is developed under Apache 2.0 license.

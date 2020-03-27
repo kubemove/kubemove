@@ -44,6 +44,7 @@ func NewServer(cb func(*grpc.ClientConn) interface{}) (Server, error) {
 	return s, nil
 }
 
+//nolint:unused,unparam
 func getServerAddr() (string, string, error) {
 	caddr := os.Getenv(ENV_SERVER_ADDR)
 	cport := os.Getenv(ENV_SERVER_PORT)

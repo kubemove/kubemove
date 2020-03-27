@@ -3,6 +3,19 @@ kind: CustomResourceDefinition
 metadata:
   name: datasyncs.kubemove.io
 spec:
+  additionalPrinterColumns:
+  - JSONPath: .spec.moveEngine
+    name: MoveEngine
+    type: string
+  - JSONPath: .spec.mode
+    name: Mode
+    type: string
+  - JSONPath: .status.status
+    name: Status
+    type: string
+  - JSONPath: .status.completionTime
+    name: Completion-Time
+    type: date
   group: kubemove.io
   names:
     kind: DataSync
@@ -10,6 +23,7 @@ spec:
     plural: datasyncs
     singular: datasync
   scope: ""
+  subresources: {}
   validation:
     openAPIV3Schema:
       description: DataSync is the Schema for the datasyncs API
@@ -29,12 +43,12 @@ spec:
         spec:
           description: DataSyncSpec defines the desired state of DataSync
           properties:
-            backup:
-              type: boolean
             config:
               additionalProperties:
                 type: string
               type: object
+            mode:
+              type: string
             moveEngine:
               type: string
             namespace:
@@ -45,20 +59,17 @@ spec:
               type: string
             plugin:
               type: string
-            restore:
-              type: boolean
           required:
-          - backup
-          - config
+          - mode
           - moveEngine
           - namespace
           - plugin
-          - restore
           type: object
         status:
           description: DataSyncStatus defines the observed state of DataSync
           properties:
             completionTime:
+              format: date-time
               type: string
             reason:
               type: string
@@ -71,8 +82,6 @@ spec:
             status:
               type: string
           required:
-          - completionTime
-          - reason
           - stage
           - status
           type: object

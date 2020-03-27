@@ -15,10 +15,9 @@ addons:
 
 script:
   - make vet
-    # TODO
-    #  - make dev-image
-    #  - make lint
-    # - make format
+  - make dev-image
+  - make lint
+  - make format
   - make
 
 after_success:
