@@ -236,11 +236,6 @@ DST_CONTEXT?=kind-dst-cluster
 SRC_ES_NODE_PORT?=
 DST_ES_NODE_PORT?=
 
-SRC_CONTROL_PANE:=$(shell /bin/bash -c "kubectl get pod -n kube-system  -o name --context=$(SRC_CONTEXT)| grep kube-apiserver")
-SRC_CLUSTER_IP=$(shell (kubectl get -n kube-system $(SRC_CONTROL_PANE) -o yaml --context=$(SRC_CONTEXT)| grep advertise-address= | cut -c27-))
-DST_CONTROL_PANE:=$(shell /bin/bash -c "kubectl get pod -n kube-system  -o name --context=$(DST_CONTEXT)| grep kube-apiserver")
-DST_CLUSTER_IP=$(shell (kubectl get -n kube-system $(DST_CONTROL_PANE) -o yaml --context=$(DST_CONTEXT)| grep advertise-address= | cut -c27-))
-
 # Register the Kubemove crds in both source and destination cluster
 # Example: make register_crds
 .PHONY: register_crds
@@ -335,6 +330,10 @@ remove_ds_ctrl:
 # Example: make create_local_mp
 .PHONY: create_local_mp
 create_local_mp:
+	$(eval SRC_CONTROL_PANE:=$(shell /bin/bash -c "kubectl get pod -n kube-system  -o name --context=$(SRC_CONTEXT)| grep kube-apiserver"))
+	$(eval SRC_CLUSTER_IP=$(shell (kubectl get -n kube-system $(SRC_CONTROL_PANE) -o yaml --context=$(SRC_CONTEXT)| grep advertise-address= | cut -c27-)))
+	$(eval DST_CONTROL_PANE:=$(shell /bin/bash -c "kubectl get pod -n kube-system  -o name --context=$(DST_CONTEXT)| grep kube-apiserver"))
+	$(eval DST_CLUSTER_IP=$(shell (kubectl get -n kube-system $(DST_CONTROL_PANE) -o yaml --context=$(DST_CONTEXT)| grep advertise-address= | cut -c27-)))
 	$(eval SRC_CLUSTER_CA:=$(shell (kubectl config view --raw -o=jsonpath='{.clusters[?(@.name=="$(SRC_CONTEXT)")].cluster.certificate-authority-data}')))
 	$(eval SRC_CLUSTER_CLIENT_CERT:=$(shell (kubectl config view --raw -o=jsonpath='{.users[?(@.name=="$(SRC_CONTEXT)")].user.client-certificate-data}')))
 	$(eval SRC_CLUSTER_CLIENT_KEY:=$(shell (kubectl config view --raw -o=jsonpath='{.users[?(@.name=="$(SRC_CONTEXT)")].user.client-key-data}')))
