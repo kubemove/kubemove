@@ -51,7 +51,7 @@ function TagAndPushImage() {
 
 if [ ! -z "${DNAME}" ] && [ ! -z "${DPASS}" ];
 then
-  sudo docker login -u "${DNAME}" -p "${DPASS}";
+  sudo docker login "${REGISTRY}" -u "${DNAME}" -p "${DPASS}";
 
   # Push CI tagged image - :ci or :branch-ci
   TagAndPushImage "${IMAGE}" "${CI_TAG}"
